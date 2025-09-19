@@ -12,14 +12,19 @@ import {
     Divider,
     Statistic,
     Row,
-    Col
+    Col,
+    Checkbox,
+    List,
+    Tag,
+    Spin
 } from 'antd';
 import {
     PlayCircleOutlined,
     ShoppingOutlined,
     ReloadOutlined,
     CalendarOutlined,
-    FileExcelOutlined
+    FileExcelOutlined,
+    AppstoreOutlined
 } from '@ant-design/icons';
 import { productsAPI, configAPI } from '../services/api';
 
@@ -30,7 +35,12 @@ const Catalog = () => {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
     const [updateLoading, setUpdateLoading] = useState(false);
+    const [categoriesLoading, setCategoriesLoading] = useState(false);
     const [lastUpdate, setLastUpdate] = useState(null);
+    const [categories, setCategories] = useState([]);
+    const [totalProducts, setTotalProducts] = useState(0);
+    const [selectedCategories, setSelectedCategories] = useState([]);
+    const [selectAll, setSelectAll] = useState(false);
 
     const loadLastUpdate = async () => {
         try {
@@ -39,6 +49,19 @@ const Catalog = () => {
         } catch (error) {
             console.error('Error loading last update:', error);
         }
+    };
+
+    const loadCategories = async () => {
+        setCategoriesLoading(true);
+        try {
+            const response = await productsAPI.getCategories();
+            setCategories(response.data.categories);
+            setTotalProducts(response.data.totalProducts);
+        } catch (error) {
+            message.error('Error al cargar las categorías');
+            console.error('Error loading categories:', error);
+        }
+        setCategoriesLoading(false);
     };
 
     const handleScrape = async (values) => {
@@ -59,12 +82,63 @@ const Catalog = () => {
         try {
             const response = await productsAPI.updateParsed();
             message.success(`Catálogo actualizado: ${response.data.updatedCount} productos`);
-            await loadLastUpdate(); // Recargar para obtener la nueva fecha
+            await Promise.all([loadLastUpdate(), loadCategories()]); // Recargar ambos
         } catch (error) {
             message.error('Error al actualizar el catálogo');
             console.error('Error updating catalog:', error);
         }
         setUpdateLoading(false);
+    };
+
+    const handleCategoryChange = (categoryIds) => {
+        setSelectedCategories(categoryIds);
+        setSelectAll(categoryIds.length === categories.length);
+    };
+
+    const handleSelectAll = (e) => {
+        const checked = e.target.checked;
+        setSelectAll(checked);
+        if (checked) {
+            setSelectedCategories(categories.map(cat => cat.category_id));
+        } else {
+            setSelectedCategories([]);
+        }
+    };
+
+    const handleScrapeBatch = async () => {
+        if (selectedCategories.length === 0) {
+            message.warning('Debe seleccionar al menos una categoría');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            // Si están todas seleccionadas, ejecutar scraper completo
+            if (selectAll || selectedCategories.length === categories.length) {
+                const response = await productsAPI.scrape({
+                    scraperType: 'fullScraper'
+                });
+                message.success(`Scraper completo iniciado - Job ID: ${response.data.result.jobId}`);
+            } else {
+                // Ejecutar scraper por categorías seleccionadas
+                const promises = selectedCategories.map(categoryId =>
+                    productsAPI.scrape({
+                        scraperType: 'categoryScraper',
+                        categoryId: categoryId
+                    })
+                );
+
+                const responses = await Promise.all(promises);
+                message.success(`Iniciados ${responses.length} scrapers para categorías seleccionadas`);
+            }
+
+            setSelectedCategories([]);
+            setSelectAll(false);
+        } catch (error) {
+            message.error('Error al iniciar el scraper por lotes');
+            console.error('Error starting batch scraper:', error);
+        }
+        setLoading(false);
     };
 
     const formatDate = (dateString) => {
@@ -74,19 +148,29 @@ const Catalog = () => {
 
     useEffect(() => {
         loadLastUpdate();
+        loadCategories();
     }, []);
+
+    const selectedCategoriesData = categories.filter(cat =>
+        selectedCategories.includes(cat.category_id)
+    );
+
+    const totalSelectedProducts = selectedCategoriesData.reduce(
+        (sum, cat) => sum + cat.product_count, 0
+    );
 
     return (
         <div>
             <Title level={2}>Gestión de Catálogo</Title>
 
             <Row gutter={[16, 16]}>
-                <Col span={24} lg={12}>
+                {/* Card de actualización Excel */}
+                <Col span={24} lg={8}>
                     <Card
                         title={
                             <Space>
                                 <FileExcelOutlined />
-                                Actualización de Catálogo Excel
+                                Actualización Excel
                             </Space>
                         }
                         style={{ height: '100%' }}
@@ -94,26 +178,25 @@ const Catalog = () => {
                         <Space direction="vertical" style={{ width: '100%' }}>
                             <Alert
                                 message="Actualización desde Excel"
-                                description="Descarga y procesa el archivo XLS remoto para actualizar el catálogo de productos con precios y disponibilidad."
+                                description="Descarga y procesa el archivo XLS remoto para actualizar precios y disponibilidad."
                                 type="info"
                                 showIcon
-                                style={{ marginBottom: 16 }}
+                                size="small"
                             />
 
                             <div>
                                 <CalendarOutlined style={{ marginRight: 8 }} />
                                 <Text strong>Última actualización:</Text>
                             </div>
-                            <Text>{formatDate(lastUpdate)}</Text>
+                            <Text type="secondary">{formatDate(lastUpdate)}</Text>
 
-                            <Divider />
+                            <Divider style={{ margin: '12px 0' }} />
 
                             <Button
                                 type="primary"
                                 icon={<ReloadOutlined />}
                                 loading={updateLoading}
                                 onClick={handleUpdateCatalog}
-                                size="large"
                                 block
                             >
                                 Actualizar desde Excel
@@ -122,21 +205,71 @@ const Catalog = () => {
                     </Card>
                 </Col>
 
-                <Col span={24} lg={12}>
+                {/* Card de estadísticas de catálogo */}
+                <Col span={24} lg={8}>
+                    <Card
+                        title={
+                            <Space>
+                                <AppstoreOutlined />
+                                Estadísticas del Catálogo
+                            </Space>
+                        }
+                        loading={categoriesLoading}
+                        style={{ height: '100%' }}
+                    >
+                        <Space direction="vertical" style={{ width: '100%' }}>
+                            <Statistic
+                                title="Total de Productos"
+                                value={totalProducts}
+                                prefix={<ShoppingOutlined />}
+                            />
+
+                            <Statistic
+                                title="Categorías Disponibles"
+                                value={categories.length}
+                                prefix={<AppstoreOutlined />}
+                            />
+
+                            {selectedCategories.length > 0 && (
+                                <>
+                                    <Divider style={{ margin: '12px 0' }} />
+                                    <Statistic
+                                        title="Productos Seleccionados"
+                                        value={totalSelectedProducts}
+                                        valueStyle={{ color: '#1890ff' }}
+                                    />
+                                </>
+                            )}
+
+                            <Button
+                                type="link"
+                                onClick={loadCategories}
+                                loading={categoriesLoading}
+                                style={{ padding: 0, height: 'auto' }}
+                            >
+                                Actualizar estadísticas
+                            </Button>
+                        </Space>
+                    </Card>
+                </Col>
+
+                {/* Card de scraper manual */}
+                <Col span={24} lg={8}>
                     <Card
                         title={
                             <Space>
                                 <PlayCircleOutlined />
-                                Control de Scraper
+                                Scraper Manual
                             </Space>
                         }
                         style={{ height: '100%' }}
                     >
                         <Alert
-                            message="Scraper de Productos"
-                            description="Ejecuta el scraper para obtener productos y categorías desde fuentes externas. El proceso puede tomar varios minutos."
+                            message="Scraper Individual"
+                            description="Ejecuta scraper para una categoría específica."
                             type="warning"
                             showIcon
+                            size="small"
                             style={{ marginBottom: 16 }}
                         />
 
@@ -146,26 +279,25 @@ const Catalog = () => {
                             onFinish={handleScrape}
                             initialValues={{
                                 scraperType: 'categoryScraper',
-                                rubros: 8
+                                categoryId: 8
                             }}
                         >
                             <Form.Item
                                 label="Tipo de Scraper"
                                 name="scraperType"
-                                rules={[{ required: true, message: 'Seleccione el tipo de scraper' }]}
+                                rules={[{ required: true, message: 'Seleccione el tipo' }]}
                             >
-                                <Select placeholder="Seleccione el tipo de scraper">
-                                    <Option value="categoryScraper">Scraper de Categorías</Option>
-                                    <Option value="productScraper">Scraper de Productos</Option>
-                                    <Option value="fullScraper">Scraper Completo</Option>
+                                <Select placeholder="Tipo de scraper">
+                                    <Option value="categoryScraper">Por Categoría</Option>
+                                    <Option value="productScraper">Por Productos</Option>
+                                    <Option value="fullScraper">Completo</Option>
                                 </Select>
                             </Form.Item>
 
                             <Form.Item
                                 label="ID de Categoría"
-                                name="rubros"
-                                rules={[{ required: true, message: 'Ingrese el ID de la categoría' }]}
-                                help="ID numérico de la categoría a procesar"
+                                name="categoryId"
+                                rules={[{ required: true, message: 'Ingrese el ID' }]}
                             >
                                 <InputNumber
                                     style={{ width: '100%' }}
@@ -180,10 +312,9 @@ const Catalog = () => {
                                     htmlType="submit"
                                     loading={loading}
                                     icon={<PlayCircleOutlined />}
-                                    size="large"
                                     block
                                 >
-                                    Ejecutar Scraper
+                                    Ejecutar
                                 </Button>
                             </Form.Item>
                         </Form>
@@ -191,28 +322,83 @@ const Catalog = () => {
                 </Col>
             </Row>
 
-            <Card title="Información del Catálogo">
-                <Space direction="vertical" style={{ width: '100%' }}>
-                    <div>
-                        <ShoppingOutlined style={{ marginRight: 8, fontSize: 16 }} />
-                        <Text strong>Estado del Catálogo</Text>
-                    </div>
+            {/* Card de selección por categorías */}
+            <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+                <Col span={24}>
+                    <Card
+                        title={
+                            <Space>
+                                <AppstoreOutlined />
+                                Scraper por Categorías
+                            </Space>
+                        }
+                        extra={
+                            <Space>
+                                <Text type="secondary">
+                                    {selectedCategories.length} de {categories.length} seleccionadas
+                                </Text>
+                                <Button
+                                    type="primary"
+                                    disabled={selectedCategories.length === 0}
+                                    loading={loading}
+                                    onClick={handleScrapeBatch}
+                                    icon={<PlayCircleOutlined />}
+                                >
+                                    Ejecutar Seleccionadas ({totalSelectedProducts} productos)
+                                </Button>
+                            </Space>
+                        }
+                    >
+                        <Space direction="vertical" style={{ width: '100%' }}>
+                            <Alert
+                                message="Scraper por Lotes"
+                                description="Selecciona las categorías que deseas actualizar. Usar 'Seleccionar Todo' ejecutará un scraper completo más eficiente."
+                                type="info"
+                                showIcon
+                            />
 
-                    <Text type="secondary">
-                        Aquí se mostrará información sobre el estado actual del catálogo,
-                        número de productos, categorías disponibles, etc.
-                    </Text>
+                            <Checkbox
+                                checked={selectAll}
+                                onChange={handleSelectAll}
+                                disabled={categoriesLoading}
+                            >
+                                <Text strong>Seleccionar Todo ({totalProducts} productos)</Text>
+                            </Checkbox>
 
-                    <Divider />
+                            <Divider style={{ margin: '12px 0' }} />
 
-                    <Alert
-                        message="Funcionalidad en Desarrollo"
-                        description="Las estadísticas detalladas del catálogo y la visualización de productos estarán disponibles en próximas versiones."
-                        type="warning"
-                        showIcon
-                    />
-                </Space>
-            </Card>
+                            {categoriesLoading ? (
+                                <div style={{ textAlign: 'center', padding: '20px' }}>
+                                    <Spin tip="Cargando categorías..." />
+                                </div>
+                            ) : (
+                                <Checkbox.Group
+                                    value={selectedCategories}
+                                    onChange={handleCategoryChange}
+                                    style={{ width: '100%' }}
+                                    disabled={selectAll}
+                                >
+                                    <Row gutter={[8, 8]}>
+                                        {categories.map((category) => (
+                                            <Col span={24} sm={12} md={8} lg={6} key={category.category_id}>
+                                                <Checkbox
+                                                    value={category.category_id}
+                                                    style={{ width: '100%' }}
+                                                >
+                                                    <Space direction="vertical" size={0} style={{ width: '100%' }}>
+                                                        <Text strong>{category.category_name}</Text>
+                                                        <Tag color="blue">{category.product_count} productos</Tag>
+                                                    </Space>
+                                                </Checkbox>
+                                            </Col>
+                                        ))}
+                                    </Row>
+                                </Checkbox.Group>
+                            )}
+                        </Space>
+                    </Card>
+                </Col>
+            </Row>
         </div>
     );
 };

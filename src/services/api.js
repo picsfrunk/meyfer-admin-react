@@ -55,6 +55,7 @@ export const configAPI = {
 export const productsAPI = {
     updateParsed: () => api.post('/config/parsed'),
     scrape: (data) => api.post('/config/scrape', data),
+    getCategories: () => api.get('/categories'),
 };
 
 export const ordersAPI = {
