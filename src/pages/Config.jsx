@@ -13,7 +13,7 @@ import {
     Divider,
     message
 } from 'antd';
-import { SaveOutlined, ReloadOutlined, PercentageOutlined, CalendarOutlined } from '@ant-design/icons';
+import { SaveOutlined, ReloadOutlined, CalendarOutlined } from '@ant-design/icons';
 import { configAPI, productsAPI } from '../services/api';
 
 const { Title, Text } = Typography;
@@ -93,19 +93,18 @@ const Config = () => {
                             onFinish={handleUpdateMargin}
                         >
                             <Form.Item
-                                label="Margen de ganancia"
+                                label="Margen de ganancia (%)"
                                 name="margin"
                                 rules={[
                                     { required: true, message: 'El margen es requerido' },
-                                    { type: 'number', min: 1, message: 'El margen debe ser mayor a 1' }
+                                    { type: 'number', min: 0, max: 1000, message: 'El margen debe estar entre 0% y 1000%' }
                                 ]}
-                                help="Multiplicador aplicado a los precios base (ej: 1.27 = 27% de ganancia)"
                             >
                                 <InputNumber
                                     style={{ width: '100%' }}
-                                    step={0.01}
-                                    precision={2}
-                                    addonAfter={<PercentageOutlined />}
+                                    step={0.1}
+                                    precision={1}
+                                    addonAfter="%"
                                 />
                             </Form.Item>
 
@@ -121,17 +120,17 @@ const Config = () => {
                             </Form.Item>
                         </Form>
 
-                        {margin && (
+                        {margin !== null && (
                             <>
                                 <Divider />
                                 <Statistic
                                     title="Margen Actual"
                                     value={margin}
-                                    precision={2}
-                                    suffix="x"
+                                    precision={1}
+                                    suffix="%"
                                 />
                                 <Text type="secondary">
-                                    Ganancia: {((margin - 1) * 100).toFixed(1)}%
+                                    Multiplicador: {(1 + margin / 100).toFixed(2)}x
                                 </Text>
                             </>
                         )}
