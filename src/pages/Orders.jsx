@@ -33,7 +33,7 @@ const Orders = () => {
     const [modalVisible, setModalVisible] = useState(false);
     const [detailModalVisible, setDetailModalVisible] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState(null);
-    const [selectedStatuses, setSelectedStatuses] = useState([]);
+    const [selectedStatuses, setSelectedStatuses] = useState(['pending']);
     const [showDeleted, setShowDeleted] = useState(false);
     const [form] = Form.useForm();
 
