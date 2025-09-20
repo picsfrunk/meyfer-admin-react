@@ -12,18 +12,19 @@ import {
     Select,
     message,
     Popconfirm,
-    Descriptions
+    Descriptions,
+    Row,
+    Col
 } from 'antd';
 import {
     EyeOutlined,
     EditOutlined,
     DeleteOutlined,
-    FileTextOutlined,
-    ReloadOutlined
+    ReloadOutlined,
 } from '@ant-design/icons';
 import { ordersAPI } from '../services/api';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 const { Option } = Select;
 const { TextArea } = Input;
 
@@ -33,20 +34,36 @@ const Orders = () => {
     const [modalVisible, setModalVisible] = useState(false);
     const [detailModalVisible, setDetailModalVisible] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState(null);
+    const [selectedStatuses, setSelectedStatuses] = useState([]);
     const [form] = Form.useForm();
 
     const statusColors = {
-        'pendiente': 'orange',
+        'pending': 'orange',
         'procesado': 'blue',
-        'enviado': 'green',
+        'enviado': 'cyan',
         'entregado': 'success',
-        'cancelado': 'red'
+        'cancelado': 'red',
+        'deleted': 'gray'
     };
 
-    const loadOrders = async () => {
+    const statusOptions = [
+        { key: 'pending', label: 'Pendiente', color: 'orange' },
+        { key: 'procesado', label: 'Procesado', color: 'cyan' },
+        { key: 'enviado', label: 'Enviado', color: 'green' },
+        { key: 'entregado', label: 'Entregado', color: 'success' },
+        { key: 'cancelado', label: 'Cancelado', color: 'red' },
+        { key: 'deleted', label: 'Eliminado', color: 'gray' }
+    ];
+
+    const loadOrders = async (statusFilters = []) => {
         setLoading(true);
         try {
-            const response = await ordersAPI.getAll();
+            let url = '/orders';
+            if (statusFilters.length > 0) {
+                url += `?status=${statusFilters.join(',')}`;
+            }
+
+            const response = await ordersAPI.getAll(url);
             setOrders(response.data);
         } catch (error) {
             message.error('Error al cargar los pedidos');
@@ -55,11 +72,24 @@ const Orders = () => {
         setLoading(false);
     };
 
+    const handleStatusToggle = (statusKey) => {
+        const newSelectedStatuses = selectedStatuses.includes(statusKey)
+            ? selectedStatuses.filter(s => s !== statusKey)
+            : [...selectedStatuses, statusKey];
+        setSelectedStatuses(newSelectedStatuses);
+        loadOrders(newSelectedStatuses);
+    };
+
+    const clearFilters = () => {
+        setSelectedStatuses([]);
+        loadOrders([]);
+    };
+
     const handleStatusUpdate = async (orderId, newStatus) => {
         try {
             await ordersAPI.updateStatus(orderId, newStatus);
             message.success('Estado actualizado correctamente');
-            loadOrders();
+            loadOrders(selectedStatuses);
         } catch (error) {
             message.error('Error al actualizar el estado');
             console.error('Error updating status:', error);
@@ -70,7 +100,7 @@ const Orders = () => {
         try {
             await ordersAPI.delete(orderId);
             message.success('Pedido eliminado correctamente');
-            loadOrders();
+            loadOrders(selectedStatuses);
         } catch (error) {
             message.error('Error al eliminar el pedido');
             console.error('Error deleting order:', error);
@@ -99,13 +129,13 @@ const Orders = () => {
                 address: values.address,
                 status: values.status,
                 total: values.total,
-                items: selectedOrder.items // Mantenemos los items existentes
+                items: selectedOrder.items
             };
 
             await ordersAPI.update(selectedOrder.orderId, updatedOrder);
             message.success('Pedido actualizado correctamente');
             setModalVisible(false);
-            loadOrders();
+            loadOrders(selectedStatuses);
         } catch (error) {
             message.error('Error al actualizar el pedido');
             console.error('Error updating order:', error);
@@ -115,6 +145,11 @@ const Orders = () => {
     const showOrderDetail = (order) => {
         setSelectedOrder(order);
         setDetailModalVisible(true);
+    };
+
+    const handleQuickStatusUpdate = async (orderId, newStatus) => {
+        await handleStatusUpdate(orderId, newStatus);
+        setDetailModalVisible(false);
     };
 
     const columns = [
@@ -140,7 +175,7 @@ const Orders = () => {
             title: 'Total',
             dataIndex: 'total',
             key: 'total',
-            render: (total) => `${total.toLocaleString()}`,
+            render: (total) => `$${total.toLocaleString()}`,
             width: 100,
         },
         {
@@ -195,14 +230,37 @@ const Orders = () => {
         <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <Title level={2}>Gestión de Pedidos</Title>
-                <Button
-                    icon={<ReloadOutlined />}
-                    onClick={loadOrders}
-                    loading={loading}
-                >
-                    Actualizar
-                </Button>
+                <Space>
+                    <Button
+                        icon={<ReloadOutlined />}
+                        onClick={() => loadOrders(selectedStatuses)}
+                        loading={loading}
+                    >
+                        Actualizar
+                    </Button>
+                </Space>
             </div>
+
+            <Card style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <Text strong>Filtrar por Estado:</Text>
+                    <Button size="small" onClick={clearFilters} disabled={selectedStatuses.length === 0}>
+                        Restablecer Filtros
+                    </Button>
+                </div>
+                <Space wrap>
+                    {statusOptions.map((status) => (
+                        <Tag.CheckableTag
+                            key={status.key}
+                            checked={selectedStatuses.includes(status.key)}
+                            onChange={() => handleStatusToggle(status.key)}
+                            color={selectedStatuses.includes(status.key) ? status.color : 'default'}
+                        >
+                            {status.label}
+                        </Tag.CheckableTag>
+                    ))}
+                </Space>
+            </Card>
 
             <Card>
                 <Table
@@ -214,7 +272,8 @@ const Orders = () => {
                         total: orders.length,
                         pageSize: 10,
                         showSizeChanger: true,
-                        showTotal: (total) => `Total: ${total} pedidos`
+                        showTotal: (total, range) =>
+                            `${range[0]}-${range[1]} de ${total} pedidos${selectedStatuses.length > 0 ? ' (filtrados)' : ''}`
                     }}
                 />
             </Card>
@@ -341,12 +400,12 @@ const Orders = () => {
                                     {
                                         title: 'Precio Unit.',
                                         dataIndex: 'price',
-                                        render: (price) => `${price}`,
+                                        render: (price) => `$${price}`,
                                         width: 100
                                     },
                                     {
                                         title: 'Subtotal',
-                                        render: (_, record) => `${record.qty * record.price}`,
+                                        render: (_, record) => `$${record.qty * record.price}`,
                                         width: 100
                                     }
                                 ]}
@@ -354,15 +413,30 @@ const Orders = () => {
                         </div>
 
                         <div style={{ marginTop: 16, textAlign: 'center' }}>
-                            <Space>
-                                <Button onClick={() => handleStatusUpdate(selectedOrder.orderId, 'procesado')}>
-                                    Marcar Procesado
+                            <Text strong style={{ display: 'block', marginBottom: 8 }}>
+                                Cambiar Estado:
+                            </Text>
+                            <Space wrap>
+                                <Button
+                                    size="small"
+                                    onClick={() => handleQuickStatusUpdate(selectedOrder.orderId, 'procesado')}
+                                    disabled={selectedOrder.status === 'procesado'}
+                                >
+                                    <Tag color="blue" style={{ margin: 0 }}>PROCESADO</Tag>
                                 </Button>
-                                <Button onClick={() => handleStatusUpdate(selectedOrder.orderId, 'enviado')}>
-                                    Marcar Enviado
+                                <Button
+                                    size="small"
+                                    onClick={() => handleQuickStatusUpdate(selectedOrder.orderId, 'enviado')}
+                                    disabled={selectedOrder.status === 'enviado'}
+                                >
+                                    <Tag color="green" style={{ margin: 0 }}>ENVIADO</Tag>
                                 </Button>
-                                <Button onClick={() => handleStatusUpdate(selectedOrder.orderId, 'entregado')}>
-                                    Marcar Entregado
+                                <Button
+                                    size="small"
+                                    onClick={() => handleQuickStatusUpdate(selectedOrder.orderId, 'entregado')}
+                                    disabled={selectedOrder.status === 'entregado'}
+                                >
+                                    <Tag color="success" style={{ margin: 0 }}>ENTREGADO</Tag>
                                 </Button>
                             </Space>
                         </div>

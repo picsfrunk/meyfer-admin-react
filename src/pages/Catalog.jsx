@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import {
     Card,
     Button,
+    Form,
+    Select,
+    InputNumber,
     Space,
     Typography,
     Alert,
@@ -25,8 +28,10 @@ import {
 import { productsAPI, configAPI } from '../services/api';
 
 const { Title, Text } = Typography;
+const { Option } = Select;
 
 const Catalog = () => {
+    const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
     const [updateLoading, setUpdateLoading] = useState(false);
     const [categoriesLoading, setCategoriesLoading] = useState(false);
@@ -56,6 +61,19 @@ const Catalog = () => {
             console.error('Error loading categories:', error);
         }
         setCategoriesLoading(false);
+    };
+
+    const handleScrape = async (values) => {
+        setLoading(true);
+        try {
+            const response = await productsAPI.scrape(values);
+            message.success(`Scraper iniciado - Job ID: ${response.data.result.jobId}`);
+            form.resetFields();
+        } catch (error) {
+            message.error('Error al iniciar el scraper');
+            console.error('Error starting scraper:', error);
+        }
+        setLoading(false);
     };
 
     const handleUpdateCatalog = async () => {
@@ -283,9 +301,10 @@ const Catalog = () => {
                 </Col>
             </Row>
 
-            {/* Card de actualización Excel - Mitad de tamaño */}
-            <Row gutter={[16, 16]} justify="start">
-                <Col span={24} md={12}>
+            {/* Cards inferiores - Excel y Scraper Manual */}
+            <Row gutter={[16, 16]}>
+                {/* Card de actualización Excel */}
+                <Col span={24} lg={12}>
                     <Card
                         title={
                             <Space>
@@ -293,6 +312,7 @@ const Catalog = () => {
                                 Actualización desde Excel
                             </Space>
                         }
+                        style={{ height: '100%' }}
                     >
                         <Space direction="vertical" style={{ width: '100%' }}>
                             <Alert
@@ -323,6 +343,76 @@ const Catalog = () => {
                             >
                                 Actualizar Catálogo desde Excel
                             </Button>
+                        </Space>
+                    </Card>
+                </Col>
+
+                {/* Card de scraper manual */}
+                <Col span={24} lg={12}>
+                    <Card
+                        title={
+                            <Space>
+                                <PlayCircleOutlined />
+                                Scraper Manual
+                            </Space>
+                        }
+                        style={{ height: '100%' }}
+                    >
+                        <Space direction="vertical" style={{ width: '100%' }}>
+                            <Alert
+                                message="Scraper Individual"
+                                description="Ejecuta scraper para una categoría específica o tipo particular de contenido."
+                                type="warning"
+                                showIcon
+                                size="small"
+                            />
+
+                            <Form
+                                form={form}
+                                layout="vertical"
+                                onFinish={handleScrape}
+                                initialValues={{
+                                    scraperType: 'categoryScraper',
+                                    categoryId: 8
+                                }}
+                            >
+                                <Form.Item
+                                    label="Tipo de Scraper"
+                                    name="scraperType"
+                                    rules={[{ required: true, message: 'Seleccione el tipo de scraper' }]}
+                                >
+                                    <Select placeholder="Seleccione el tipo de scraper">
+                                        <Option value="categoryScraper">Scraper de Categorías</Option>
+                                        <Option value="productScraper">Scraper de Productos</Option>
+                                        <Option value="fullScraper">Scraper Completo</Option>
+                                    </Select>
+                                </Form.Item>
+
+                                <Form.Item
+                                    label="ID de Categoría"
+                                    name="categoryId"
+                                    rules={[{ required: true, message: 'Ingrese el ID de la categoría' }]}
+                                    help="ID numérico de la categoría a procesar"
+                                >
+                                    <InputNumber
+                                        style={{ width: '100%' }}
+                                        min={1}
+                                        placeholder="Ej: 8"
+                                    />
+                                </Form.Item>
+
+                                <Form.Item>
+                                    <Button
+                                        type="primary"
+                                        htmlType="submit"
+                                        loading={loading}
+                                        icon={<PlayCircleOutlined />}
+                                        block
+                                    >
+                                        Ejecutar Scraper
+                                    </Button>
+                                </Form.Item>
+                            </Form>
                         </Space>
                     </Card>
                 </Col>
