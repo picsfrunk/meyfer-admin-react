@@ -2,9 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
     Card,
     Button,
-    Form,
-    Select,
-    InputNumber,
     Space,
     Typography,
     Alert,
@@ -14,7 +11,6 @@ import {
     Row,
     Col,
     Checkbox,
-    List,
     Tag,
     Spin
 } from 'antd';
@@ -29,10 +25,8 @@ import {
 import { productsAPI, configAPI } from '../services/api';
 
 const { Title, Text } = Typography;
-const { Option } = Select;
 
 const Catalog = () => {
-    const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
     const [updateLoading, setUpdateLoading] = useState(false);
     const [categoriesLoading, setCategoriesLoading] = useState(false);
@@ -62,19 +56,6 @@ const Catalog = () => {
             console.error('Error loading categories:', error);
         }
         setCategoriesLoading(false);
-    };
-
-    const handleScrape = async (values) => {
-        setLoading(true);
-        try {
-            const response = await productsAPI.scrape(values);
-            message.success(`Scraper iniciado - Job ID: ${response.data.result.jobId}`);
-            form.resetFields();
-        } catch (error) {
-            message.error('Error al iniciar el scraper');
-            console.error('Error starting scraper:', error);
-        }
-        setLoading(false);
     };
 
     const handleUpdateCatalog = async () => {
@@ -163,50 +144,9 @@ const Catalog = () => {
         <div>
             <Title level={2}>Gestión de Catálogo</Title>
 
-            <Row gutter={[16, 16]}>
-                {/* Card de actualización Excel */}
-                <Col span={24} lg={8}>
-                    <Card
-                        title={
-                            <Space>
-                                <FileExcelOutlined />
-                                Actualización Excel
-                            </Space>
-                        }
-                        style={{ height: '100%' }}
-                    >
-                        <Space direction="vertical" style={{ width: '100%' }}>
-                            <Alert
-                                message="Actualización desde Excel"
-                                description="Descarga y procesa el archivo XLS remoto para actualizar precios y disponibilidad."
-                                type="info"
-                                showIcon
-                                size="small"
-                            />
-
-                            <div>
-                                <CalendarOutlined style={{ marginRight: 8 }} />
-                                <Text strong>Última actualización:</Text>
-                            </div>
-                            <Text type="secondary">{formatDate(lastUpdate)}</Text>
-
-                            <Divider style={{ margin: '12px 0' }} />
-
-                            <Button
-                                type="primary"
-                                icon={<ReloadOutlined />}
-                                loading={updateLoading}
-                                onClick={handleUpdateCatalog}
-                                block
-                            >
-                                Actualizar desde Excel
-                            </Button>
-                        </Space>
-                    </Card>
-                </Col>
-
-                {/* Card de estadísticas de catálogo */}
-                <Col span={24} lg={8}>
+            {/* Card de estadísticas horizontal - Principal */}
+            <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+                <Col span={24}>
                     <Card
                         title={
                             <Space>
@@ -215,115 +155,58 @@ const Catalog = () => {
                             </Space>
                         }
                         loading={categoriesLoading}
-                        style={{ height: '100%' }}
-                    >
-                        <Space direction="vertical" style={{ width: '100%' }}>
-                            <Statistic
-                                title="Total de Productos"
-                                value={totalProducts}
-                                prefix={<ShoppingOutlined />}
-                            />
-
-                            <Statistic
-                                title="Categorías Disponibles"
-                                value={categories.length}
-                                prefix={<AppstoreOutlined />}
-                            />
-
-                            {selectedCategories.length > 0 && (
-                                <>
-                                    <Divider style={{ margin: '12px 0' }} />
-                                    <Statistic
-                                        title="Productos Seleccionados"
-                                        value={totalSelectedProducts}
-                                        valueStyle={{ color: '#1890ff' }}
-                                    />
-                                </>
-                            )}
-
+                        extra={
                             <Button
                                 type="link"
                                 onClick={loadCategories}
                                 loading={categoriesLoading}
-                                style={{ padding: 0, height: 'auto' }}
+                                icon={<ReloadOutlined />}
                             >
                                 Actualizar estadísticas
                             </Button>
-                        </Space>
-                    </Card>
-                </Col>
-
-                {/* Card de scraper manual */}
-                <Col span={24} lg={8}>
-                    <Card
-                        title={
-                            <Space>
-                                <PlayCircleOutlined />
-                                Scraper Manual
-                            </Space>
                         }
-                        style={{ height: '100%' }}
                     >
-                        <Alert
-                            message="Scraper Individual"
-                            description="Ejecuta scraper para una categoría específica."
-                            type="warning"
-                            showIcon
-                            size="small"
-                            style={{ marginBottom: 16 }}
-                        />
-
-                        <Form
-                            form={form}
-                            layout="vertical"
-                            onFinish={handleScrape}
-                            initialValues={{
-                                scraperType: 'categoryScraper',
-                                categoryId: 8
-                            }}
-                        >
-                            <Form.Item
-                                label="Tipo de Scraper"
-                                name="scraperType"
-                                rules={[{ required: true, message: 'Seleccione el tipo' }]}
-                            >
-                                <Select placeholder="Tipo de scraper">
-                                    <Option value="categoryScraper">Por Categoría</Option>
-                                    <Option value="productScraper">Por Productos</Option>
-                                    <Option value="fullScraper">Completo</Option>
-                                </Select>
-                            </Form.Item>
-
-                            <Form.Item
-                                label="ID de Categoría"
-                                name="categoryId"
-                                rules={[{ required: true, message: 'Ingrese el ID' }]}
-                            >
-                                <InputNumber
-                                    style={{ width: '100%' }}
-                                    min={1}
-                                    placeholder="Ej: 8"
+                        <Row gutter={[24, 16]} align="middle">
+                            <Col xs={24} sm={8}>
+                                <Statistic
+                                    title="Total de Productos"
+                                    value={totalProducts}
+                                    prefix={<ShoppingOutlined />}
                                 />
-                            </Form.Item>
+                            </Col>
 
-                            <Form.Item>
-                                <Button
-                                    type="primary"
-                                    htmlType="submit"
-                                    loading={loading}
-                                    icon={<PlayCircleOutlined />}
-                                    block
-                                >
-                                    Ejecutar
-                                </Button>
-                            </Form.Item>
-                        </Form>
+                            <Col xs={24} sm={8}>
+                                <Statistic
+                                    title="Categorías Disponibles"
+                                    value={categories.length}
+                                    prefix={<AppstoreOutlined />}
+                                />
+                            </Col>
+
+                            <Col xs={24} sm={8}>
+                                {selectedCategories.length > 0 ? (
+                                    <Statistic
+                                        title="Productos Seleccionados"
+                                        value={totalSelectedProducts}
+                                        valueStyle={{ color: '#1890ff' }}
+                                        prefix={<PlayCircleOutlined />}
+                                    />
+                                ) : (
+                                    <Statistic
+                                        title="Última Actualización"
+                                        value={formatDate(lastUpdate)}
+                                        valueStyle={{ fontSize: '14px' }}
+                                        prefix={<CalendarOutlined />}
+                                    />
+                                )}
+                            </Col>
+                        </Row>
                     </Card>
                 </Col>
             </Row>
 
-            {/* Card de selección por categorías */}
-            <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+            {/* Card de selección por categorías - Scraper */}
+            <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
                 <Col span={24}>
                     <Card
                         title={
@@ -395,6 +278,51 @@ const Catalog = () => {
                                     </Row>
                                 </Checkbox.Group>
                             )}
+                        </Space>
+                    </Card>
+                </Col>
+            </Row>
+
+            {/* Card de actualización Excel - Mitad de tamaño */}
+            <Row gutter={[16, 16]} justify="start">
+                <Col span={24} md={12}>
+                    <Card
+                        title={
+                            <Space>
+                                <FileExcelOutlined />
+                                Actualización desde Excel
+                            </Space>
+                        }
+                    >
+                        <Space direction="vertical" style={{ width: '100%' }}>
+                            <Alert
+                                message="Actualización de Catálogo"
+                                description="Descarga y procesa el archivo XLS remoto para actualizar precios y disponibilidad de productos."
+                                type="success"
+                                showIcon
+                                size="small"
+                            />
+
+                            <div style={{ textAlign: 'center' }}>
+                                <div style={{ marginBottom: 8 }}>
+                                    <CalendarOutlined style={{ marginRight: 8 }} />
+                                    <Text strong>Última actualización:</Text>
+                                </div>
+                                <Text type="secondary">{formatDate(lastUpdate)}</Text>
+                            </div>
+
+                            <Divider style={{ margin: '16px 0' }} />
+
+                            <Button
+                                type="primary"
+                                icon={<ReloadOutlined />}
+                                loading={updateLoading}
+                                onClick={handleUpdateCatalog}
+                                size="large"
+                                block
+                            >
+                                Actualizar Catálogo desde Excel
+                            </Button>
                         </Space>
                     </Card>
                 </Col>
