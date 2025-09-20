@@ -13,8 +13,7 @@ import {
     message,
     Popconfirm,
     Descriptions,
-    Row,
-    Col
+    Checkbox,
 } from 'antd';
 import {
     EyeOutlined,
@@ -35,15 +34,16 @@ const Orders = () => {
     const [detailModalVisible, setDetailModalVisible] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [selectedStatuses, setSelectedStatuses] = useState([]);
+    const [showDeleted, setShowDeleted] = useState(false);
     const [form] = Form.useForm();
 
     const statusColors = {
-        'pending': 'orange',
-        'procesado': 'blue',
-        'enviado': 'cyan',
-        'entregado': 'success',
-        'cancelado': 'red',
-        'deleted': 'gray'
+        pending: 'orange',
+        procesado: 'blue',
+        enviado: 'cyan',
+        entregado: 'success',
+        cancelado: 'red',
+        deleted: 'gray',
     };
 
     const statusOptions = [
@@ -52,15 +52,22 @@ const Orders = () => {
         { key: 'enviado', label: 'Enviado', color: 'green' },
         { key: 'entregado', label: 'Entregado', color: 'success' },
         { key: 'cancelado', label: 'Cancelado', color: 'red' },
-        { key: 'deleted', label: 'Eliminado', color: 'gray' }
     ];
 
-    const loadOrders = async (statusFilters = []) => {
+    /**
+     * Carga pedidos filtrando por estados y opcionalmente incluyendo eliminados
+     */
+    const loadOrders = async (statusFilters = [], includeDeleted = showDeleted) => {
         setLoading(true);
         try {
+            const statuses = [...statusFilters];
+            if (includeDeleted) {
+                statuses.push('deleted');
+            }
+
             let url = '/orders';
-            if (statusFilters.length > 0) {
-                url += `?status=${statusFilters.join(',')}`;
+            if (statuses.length > 0) {
+                url += `?status=${statuses.join(',')}`;
             }
 
             const response = await ordersAPI.getAll(url);
@@ -74,22 +81,30 @@ const Orders = () => {
 
     const handleStatusToggle = (statusKey) => {
         const newSelectedStatuses = selectedStatuses.includes(statusKey)
-            ? selectedStatuses.filter(s => s !== statusKey)
+            ? selectedStatuses.filter((s) => s !== statusKey)
             : [...selectedStatuses, statusKey];
         setSelectedStatuses(newSelectedStatuses);
-        loadOrders(newSelectedStatuses);
+        loadOrders(newSelectedStatuses, showDeleted);
+    };
+
+    const handleDeletedToggle = (e) => {
+        const checked = e.target.checked;
+        setShowDeleted(checked);
+        // recargar pedidos con los estados actuales + deleted si corresponde
+        loadOrders(selectedStatuses, checked);
     };
 
     const clearFilters = () => {
         setSelectedStatuses([]);
-        loadOrders([]);
+        setShowDeleted(false);
+        loadOrders(['pending'], false);
     };
 
     const handleStatusUpdate = async (orderId, newStatus) => {
         try {
             await ordersAPI.updateStatus(orderId, newStatus);
             message.success('Estado actualizado correctamente');
-            loadOrders(selectedStatuses);
+            loadOrders(selectedStatuses, showDeleted);
         } catch (error) {
             message.error('Error al actualizar el estado');
             console.error('Error updating status:', error);
@@ -100,7 +115,7 @@ const Orders = () => {
         try {
             await ordersAPI.delete(orderId);
             message.success('Pedido eliminado correctamente');
-            loadOrders(selectedStatuses);
+            loadOrders(selectedStatuses, showDeleted);
         } catch (error) {
             message.error('Error al eliminar el pedido');
             console.error('Error deleting order:', error);
@@ -114,7 +129,7 @@ const Orders = () => {
             customerEmail: order.customerInfo.email,
             address: order.address,
             status: order.status,
-            total: order.total
+            total: order.total,
         });
         setModalVisible(true);
     };
@@ -124,18 +139,18 @@ const Orders = () => {
             const updatedOrder = {
                 customerInfo: {
                     nombre: values.customerName,
-                    email: values.customerEmail
+                    email: values.customerEmail,
                 },
                 address: values.address,
                 status: values.status,
                 total: values.total,
-                items: selectedOrder.items
+                items: selectedOrder.items,
             };
 
             await ordersAPI.update(selectedOrder.orderId, updatedOrder);
             message.success('Pedido actualizado correctamente');
             setModalVisible(false);
-            loadOrders(selectedStatuses);
+            loadOrders(selectedStatuses, showDeleted);
         } catch (error) {
             message.error('Error al actualizar el pedido');
             console.error('Error updating order:', error);
@@ -210,11 +225,7 @@ const Orders = () => {
                         okText="Sí"
                         cancelText="No"
                     >
-                        <Button
-                            icon={<DeleteOutlined />}
-                            size="small"
-                            danger
-                        />
+                        <Button icon={<DeleteOutlined />} size="small" danger />
                     </Popconfirm>
                 </Space>
             ),
@@ -223,17 +234,24 @@ const Orders = () => {
     ];
 
     useEffect(() => {
-        loadOrders();
+        loadOrders(['pending'], false);
     }, []);
 
     return (
         <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div
+                style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 16,
+                }}
+            >
                 <Title level={2}>Gestión de Pedidos</Title>
                 <Space>
                     <Button
                         icon={<ReloadOutlined />}
-                        onClick={() => loadOrders(selectedStatuses)}
+                        onClick={() => loadOrders(selectedStatuses, showDeleted)}
                         loading={loading}
                     >
                         Actualizar
@@ -242,11 +260,25 @@ const Orders = () => {
             </div>
 
             <Card style={{ marginBottom: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <div
+                    style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: 16,
+                    }}
+                >
                     <Text strong>Filtrar por Estado:</Text>
-                    <Button size="small" onClick={clearFilters} disabled={selectedStatuses.length === 0}>
+                    <Button
+                        size="small"
+                        onClick={clearFilters}
+                        disabled={selectedStatuses.length === 0 && !showDeleted}
+                    >
                         Restablecer Filtros
                     </Button>
+                    <Checkbox checked={showDeleted} onChange={handleDeletedToggle}>
+                        Mostrar Eliminados
+                    </Checkbox>
                 </div>
                 <Space wrap>
                     {statusOptions.map((status) => (
@@ -254,7 +286,9 @@ const Orders = () => {
                             key={status.key}
                             checked={selectedStatuses.includes(status.key)}
                             onChange={() => handleStatusToggle(status.key)}
-                            color={selectedStatuses.includes(status.key) ? status.color : 'default'}
+                            color={
+                                selectedStatuses.includes(status.key) ? status.color : 'default'
+                            }
                         >
                             {status.label}
                         </Tag.CheckableTag>
@@ -273,7 +307,11 @@ const Orders = () => {
                         pageSize: 10,
                         showSizeChanger: true,
                         showTotal: (total, range) =>
-                            `${range[0]}-${range[1]} de ${total} pedidos${selectedStatuses.length > 0 ? ' (filtrados)' : ''}`
+                            `${range[0]}-${range[1]} de ${total} pedidos${
+                                selectedStatuses.length > 0 || showDeleted
+                                    ? ' (filtrados)'
+                                    : ''
+                            }`,
                     }}
                 />
             </Card>
@@ -286,11 +324,7 @@ const Orders = () => {
                 footer={null}
                 width={600}
             >
-                <Form
-                    form={form}
-                    layout="vertical"
-                    onFinish={handleUpdate}
-                >
+                <Form form={form} layout="vertical" onFinish={handleUpdate}>
                     <Form.Item
                         label="Nombre del Cliente"
                         name="customerName"
@@ -304,7 +338,7 @@ const Orders = () => {
                         name="customerEmail"
                         rules={[
                             { required: true, message: 'El email es requerido' },
-                            { type: 'email', message: 'Formato de email inválido' }
+                            { type: 'email', message: 'Formato de email inválido' },
                         ]}
                     >
                         <Input />
@@ -345,9 +379,7 @@ const Orders = () => {
                             <Button type="primary" htmlType="submit">
                                 Actualizar
                             </Button>
-                            <Button onClick={() => setModalVisible(false)}>
-                                Cancelar
-                            </Button>
+                            <Button onClick={() => setModalVisible(false)}>Cancelar</Button>
                         </Space>
                     </Form.Item>
                 </Form>
@@ -401,13 +433,13 @@ const Orders = () => {
                                         title: 'Precio Unit.',
                                         dataIndex: 'price',
                                         render: (price) => `$${price}`,
-                                        width: 100
+                                        width: 100,
                                     },
                                     {
                                         title: 'Subtotal',
                                         render: (_, record) => `$${record.qty * record.price}`,
-                                        width: 100
-                                    }
+                                        width: 100,
+                                    },
                                 ]}
                             />
                         </div>
@@ -419,24 +451,36 @@ const Orders = () => {
                             <Space wrap>
                                 <Button
                                     size="small"
-                                    onClick={() => handleQuickStatusUpdate(selectedOrder.orderId, 'procesado')}
+                                    onClick={() =>
+                                        handleQuickStatusUpdate(selectedOrder.orderId, 'procesado')
+                                    }
                                     disabled={selectedOrder.status === 'procesado'}
                                 >
-                                    <Tag color="blue" style={{ margin: 0 }}>PROCESADO</Tag>
+                                    <Tag color="blue" style={{ margin: 0 }}>
+                                        PROCESADO
+                                    </Tag>
                                 </Button>
                                 <Button
                                     size="small"
-                                    onClick={() => handleQuickStatusUpdate(selectedOrder.orderId, 'enviado')}
+                                    onClick={() =>
+                                        handleQuickStatusUpdate(selectedOrder.orderId, 'enviado')
+                                    }
                                     disabled={selectedOrder.status === 'enviado'}
                                 >
-                                    <Tag color="green" style={{ margin: 0 }}>ENVIADO</Tag>
+                                    <Tag color="green" style={{ margin: 0 }}>
+                                        ENVIADO
+                                    </Tag>
                                 </Button>
                                 <Button
                                     size="small"
-                                    onClick={() => handleQuickStatusUpdate(selectedOrder.orderId, 'entregado')}
+                                    onClick={() =>
+                                        handleQuickStatusUpdate(selectedOrder.orderId, 'entregado')
+                                    }
                                     disabled={selectedOrder.status === 'entregado'}
                                 >
-                                    <Tag color="success" style={{ margin: 0 }}>ENTREGADO</Tag>
+                                    <Tag color="success" style={{ margin: 0 }}>
+                                        ENTREGADO
+                                    </Tag>
                                 </Button>
                             </Space>
                         </div>
