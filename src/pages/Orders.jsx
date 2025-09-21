@@ -44,7 +44,7 @@ const Orders = () => {
         pending: 'orange',
         procesado: 'blue',
         enviado: 'cyan',
-        entregado: 'success',
+        entregado: 'PaleGreen',
         cancelado: 'red',
         deleted: 'gray',
     };
@@ -68,18 +68,19 @@ const Orders = () => {
     ) => {
         setLoading(true);
         try {
-            let query = '';
+            let statusesToFetch = [...statusFilters];
 
             if (all) {
-                query = '';
-            } else {
-                const statuses = [...statusFilters];
-                if (includeDeleted && !statuses.includes('deleted')) {
-                    statuses.push('deleted');
-                }
-                if (statuses.length > 0) {
-                    query = `?status=${encodeURIComponent(statuses.join(','))}`;
-                }
+                statusesToFetch = ['pending', 'procesado', 'enviado', 'entregado', 'cancelado'];
+            }
+
+            if (includeDeleted) {
+                statusesToFetch.push('deleted');
+            }
+
+            let query = '';
+            if (statusesToFetch.length > 0) {
+                query = `?status=${encodeURIComponent(statusesToFetch.join(','))}`;
             }
 
             const { data } = await ordersAPI.getAll(`/orders${query}`);
@@ -91,7 +92,6 @@ const Orders = () => {
             setLoading(false);
         }
     };
-
 
     const handleStatusToggle = async (statusKey) => {
         if (statusKey === 'todos') {
@@ -197,6 +197,15 @@ const Orders = () => {
             dataIndex: 'orderId',
             key: 'orderId',
             width: 150,
+            render: (orderId, record) => (
+                <Button
+                    type="link" // se ve como texto clickeable
+                    onClick={() => showOrderDetail(record)}
+                    style={{ padding: 0 }}
+                >
+                    {orderId}
+                </Button>
+            ),
         },
         {
             title: 'Cliente',
@@ -477,42 +486,41 @@ const Orders = () => {
                             </Text>
                             <Space wrap>
                                 <Button
-                                    size="small"
-                                    type="primary" // Changed to primary for better visibility
+                                    size="middle"
+                                    type="primary"
                                     onClick={() =>
                                         handleQuickStatusUpdate(selectedOrder.orderId, 'procesado')
                                     }
                                     disabled={selectedOrder.status === 'procesado'}
-                                    style={{ backgroundColor: statusColors.procesado }} // Use the color from your object
                                 >
                                     PROCESADO
                                 </Button>
                                 <Button
-                                    size="small"
-                                    type="primary"
+                                    size="middle"
                                     onClick={() =>
                                         handleQuickStatusUpdate(selectedOrder.orderId, 'enviado')
                                     }
                                     disabled={selectedOrder.status === 'enviado'}
-                                    style={{ backgroundColor: statusColors.enviado }} // Use the color from your object
+                                    style={{ backgroundColor: 'MediumSeaGreen', color: 'white' }}
+
                                 >
                                     ENVIADO
                                 </Button>
                                 <Button
-                                    size="small"
-                                    type="primary"
+                                    size="middle"
                                     onClick={() =>
                                         handleQuickStatusUpdate(selectedOrder.orderId, 'entregado')
                                     }
                                     disabled={selectedOrder.status === 'entregado'}
-                                    style={{ backgroundColor: statusColors.entregado }} // Use the color from your object
+                                    style={{ backgroundColor: 'DeepSkyBlue', color: 'white' }}
+
                                 >
                                     ENTREGADO
                                 </Button>
                             </Space>
                             <div style={{ marginTop: 24, textAlign: 'center' }}>
                                 <Button
-                                    size="middle"
+                                    size="small"
                                     danger
                                     type="primary"
                                     onClick={() => handleCancelOrder(selectedOrder.orderId)}
