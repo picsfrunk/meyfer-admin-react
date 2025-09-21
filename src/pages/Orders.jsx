@@ -33,11 +33,14 @@ const Orders = () => {
     const [modalVisible, setModalVisible] = useState(false);
     const [detailModalVisible, setDetailModalVisible] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState(null);
+
     const [selectedStatuses, setSelectedStatuses] = useState(['pending']);
     const [showDeleted, setShowDeleted] = useState(false);
+    const [allSelected, setAllSelected] = useState(false); // Nuevo estado
     const [form] = Form.useForm();
 
     const statusColors = {
+        todos: 'geekblue',
         pending: 'orange',
         procesado: 'blue',
         enviado: 'cyan',
@@ -47,6 +50,7 @@ const Orders = () => {
     };
 
     const statusOptions = [
+        { key: 'todos', label: 'Todos', color: 'geekblue' }, // Nueva opción
         { key: 'pending', label: 'Pendiente', color: 'orange' },
         { key: 'procesado', label: 'Procesado', color: 'cyan' },
         { key: 'enviado', label: 'Enviado', color: 'green' },
@@ -57,19 +61,23 @@ const Orders = () => {
     /**
      * Carga pedidos filtrando por estados y opcionalmente incluyendo eliminados
      */
-    const loadOrders = async (statusFilters = [], includeDeleted = showDeleted) => {
+    const loadOrders = async (
+        statusFilters = [],
+        includeDeleted = showDeleted,
+        all = allSelected
+    ) => {
         setLoading(true);
         try {
-            const statuses = [...statusFilters];
-            if (includeDeleted) {
-                statuses.push('deleted');
-            }
-
             let url = '/orders';
-            if (statuses.length > 0) {
+            if (!all && statusFilters.length > 0) {
+                // Si "Todos" no está activo y hay filtros
+                const statuses = [...statusFilters];
+                if (includeDeleted) statuses.push('deleted');
                 url += `?status=${statuses.join(',')}`;
+            } else if (all && includeDeleted) {
+                // Todos + eliminados
+                url += `?status=deleted`;
             }
-
             const response = await ordersAPI.getAll(url);
             setOrders(response.data);
         } catch (error) {
@@ -79,32 +87,37 @@ const Orders = () => {
         setLoading(false);
     };
 
-    const handleStatusToggle = (statusKey) => {
+    const handleStatusToggle = async (statusKey) => {
+        if (statusKey === 'todos') {
+            // Al activar "Todos", desactiva los otros filtros
+            const newAllSelected = !allSelected;
+            setAllSelected(newAllSelected);
+            setSelectedStatuses([]); // Limpia los demás
+            await loadOrders([], showDeleted, newAllSelected);
+            return;
+        }
+
+        // Si se marca otro estado, desactiva "Todos"
+        setAllSelected(false);
         const newSelectedStatuses = selectedStatuses.includes(statusKey)
             ? selectedStatuses.filter((s) => s !== statusKey)
             : [...selectedStatuses, statusKey];
+
         setSelectedStatuses(newSelectedStatuses);
-        loadOrders(newSelectedStatuses, showDeleted);
+        await loadOrders(newSelectedStatuses, showDeleted, false);
     };
 
-    const handleDeletedToggle = (e) => {
+    const handleDeletedToggle = async (e) => {
         const checked = e.target.checked;
         setShowDeleted(checked);
-        // recargar pedidos con los estados actuales + deleted si corresponde
-        loadOrders(selectedStatuses, checked);
-    };
-
-    const clearFilters = () => {
-        setSelectedStatuses([]);
-        setShowDeleted(false);
-        loadOrders(['pending'], false);
+        await loadOrders(selectedStatuses, checked, allSelected);
     };
 
     const handleStatusUpdate = async (orderId, newStatus) => {
         try {
             await ordersAPI.updateStatus(orderId, newStatus);
             message.success('Estado actualizado correctamente');
-            loadOrders(selectedStatuses, showDeleted);
+            await loadOrders(selectedStatuses, showDeleted, allSelected);
         } catch (error) {
             message.error('Error al actualizar el estado');
             console.error('Error updating status:', error);
@@ -115,7 +128,7 @@ const Orders = () => {
         try {
             await ordersAPI.delete(orderId);
             message.success('Pedido eliminado correctamente');
-            loadOrders(selectedStatuses, showDeleted);
+            await loadOrders(selectedStatuses, showDeleted, allSelected);
         } catch (error) {
             message.error('Error al eliminar el pedido');
             console.error('Error deleting order:', error);
@@ -150,7 +163,7 @@ const Orders = () => {
             await ordersAPI.update(selectedOrder.orderId, updatedOrder);
             message.success('Pedido actualizado correctamente');
             setModalVisible(false);
-            loadOrders(selectedStatuses, showDeleted);
+            await loadOrders(selectedStatuses, showDeleted, allSelected);
         } catch (error) {
             message.error('Error al actualizar el pedido');
             console.error('Error updating order:', error);
@@ -234,7 +247,7 @@ const Orders = () => {
     ];
 
     useEffect(() => {
-        loadOrders(['pending'], false);
+        loadOrders(['pending'], false, false);
     }, []);
 
     return (
@@ -251,7 +264,7 @@ const Orders = () => {
                 <Space>
                     <Button
                         icon={<ReloadOutlined />}
-                        onClick={() => loadOrders(selectedStatuses, showDeleted)}
+                        onClick={() => loadOrders(selectedStatuses, showDeleted, allSelected)}
                         loading={loading}
                     >
                         Actualizar
@@ -269,13 +282,6 @@ const Orders = () => {
                     }}
                 >
                     <Text strong>Filtrar por Estado:</Text>
-                    <Button
-                        size="small"
-                        onClick={clearFilters}
-                        disabled={selectedStatuses.length === 0 && !showDeleted}
-                    >
-                        Restablecer Filtros
-                    </Button>
                     <Checkbox checked={showDeleted} onChange={handleDeletedToggle}>
                         Mostrar Eliminados
                     </Checkbox>
@@ -284,10 +290,20 @@ const Orders = () => {
                     {statusOptions.map((status) => (
                         <Tag.CheckableTag
                             key={status.key}
-                            checked={selectedStatuses.includes(status.key)}
+                            checked={
+                                status.key === 'todos'
+                                    ? allSelected
+                                    : selectedStatuses.includes(status.key)
+                            }
                             onChange={() => handleStatusToggle(status.key)}
                             color={
-                                selectedStatuses.includes(status.key) ? status.color : 'default'
+                                status.key === 'todos'
+                                    ? allSelected
+                                        ? status.color
+                                        : 'default'
+                                    : selectedStatuses.includes(status.key)
+                                        ? status.color
+                                        : 'default'
                             }
                         >
                             {status.label}
@@ -308,7 +324,7 @@ const Orders = () => {
                         showSizeChanger: true,
                         showTotal: (total, range) =>
                             `${range[0]}-${range[1]} de ${total} pedidos${
-                                selectedStatuses.length > 0 || showDeleted
+                                allSelected || selectedStatuses.length > 0 || showDeleted
                                     ? ' (filtrados)'
                                     : ''
                             }`,
