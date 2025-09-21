@@ -50,6 +50,9 @@ export const configAPI = {
     getProfit: () => api.get('/config/profit'),
     updateProfit: (margin) => api.put('/config/profit', { margin }),
     getLastUpdate: () => api.get('/config/last-update'),
+    getAdminEmails: () => api.get('/config/admin-emails'),
+    addAdminEmail: (email, role = 'admin') => api.post('/config/admin-emails', { email, role }),
+    deactivateAdminEmail: (email) => api.patch('/config/admin-emails/deactivate', { email }),
 };
 
 export const productsAPI = {

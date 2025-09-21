@@ -214,7 +214,7 @@ const Orders = () => {
                 <div>
                     <div>{record.customerInfo.nombre}</div>
                     <div style={{ fontSize: '12px', color: '#666' }}>
-                        {record.customerInfo.email}
+                        {record.customerInfo.cliente}
                     </div>
                 </div>
             ),
