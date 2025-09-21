@@ -50,7 +50,7 @@ const Orders = () => {
     };
 
     const statusOptions = [
-        { key: 'todos', label: 'Todos', color: 'geekblue' }, // Nueva opción
+        { key: 'todos', label: 'Todos', color: 'geekblue' },
         { key: 'pending', label: 'Pendiente', color: 'orange' },
         { key: 'procesado', label: 'Procesado', color: 'cyan' },
         { key: 'enviado', label: 'Enviado', color: 'green' },
@@ -62,30 +62,36 @@ const Orders = () => {
      * Carga pedidos filtrando por estados y opcionalmente incluyendo eliminados
      */
     const loadOrders = async (
-        statusFilters = [],
-        includeDeleted = showDeleted,
-        all = allSelected
+        statusFilters = ['pending'],
+        includeDeleted = false,
+        all = false
     ) => {
         setLoading(true);
         try {
-            let url = '/orders';
-            if (!all && statusFilters.length > 0) {
-                // Si "Todos" no está activo y hay filtros
+            let query = '';
+
+            if (all) {
+                query = '';
+            } else {
                 const statuses = [...statusFilters];
-                if (includeDeleted) statuses.push('deleted');
-                url += `?status=${statuses.join(',')}`;
-            } else if (all && includeDeleted) {
-                // Todos + eliminados
-                url += `?status=deleted`;
+                if (includeDeleted && !statuses.includes('deleted')) {
+                    statuses.push('deleted');
+                }
+                if (statuses.length > 0) {
+                    query = `?status=${encodeURIComponent(statuses.join(','))}`;
+                }
             }
-            const response = await ordersAPI.getAll(url);
-            setOrders(response.data);
+
+            const { data } = await ordersAPI.getAll(`/orders${query}`);
+            setOrders(data);
         } catch (error) {
-            message.error('Error al cargar los pedidos');
             console.error('Error loading orders:', error);
+            message.error('Error al cargar los pedidos');
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
+
 
     const handleStatusToggle = async (statusKey) => {
         if (statusKey === 'todos') {
@@ -97,7 +103,6 @@ const Orders = () => {
             return;
         }
 
-        // Si se marca otro estado, desactiva "Todos"
         setAllSelected(false);
         const newSelectedStatuses = selectedStatuses.includes(statusKey)
             ? selectedStatuses.filter((s) => s !== statusKey)
@@ -106,6 +111,8 @@ const Orders = () => {
         setSelectedStatuses(newSelectedStatuses);
         await loadOrders(newSelectedStatuses, showDeleted, false);
     };
+
+
 
     const handleDeletedToggle = async (e) => {
         const checked = e.target.checked;
@@ -180,6 +187,10 @@ const Orders = () => {
         setDetailModalVisible(false);
     };
 
+    const handleCancelOrder = async (orderId) => {
+        await handleQuickStatusUpdate(orderId, 'cancelado');
+    };
+
     const columns = [
         {
             title: 'ID Pedido',
@@ -248,7 +259,7 @@ const Orders = () => {
 
     useEffect(() => {
         loadOrders(['pending'], false, false);
-    }, []);
+        }, []);
 
     return (
         <div>
@@ -467,38 +478,49 @@ const Orders = () => {
                             <Space wrap>
                                 <Button
                                     size="small"
+                                    type="primary" // Changed to primary for better visibility
                                     onClick={() =>
                                         handleQuickStatusUpdate(selectedOrder.orderId, 'procesado')
                                     }
                                     disabled={selectedOrder.status === 'procesado'}
+                                    style={{ backgroundColor: statusColors.procesado }} // Use the color from your object
                                 >
-                                    <Tag color="blue" style={{ margin: 0 }}>
-                                        PROCESADO
-                                    </Tag>
+                                    PROCESADO
                                 </Button>
                                 <Button
                                     size="small"
+                                    type="primary"
                                     onClick={() =>
                                         handleQuickStatusUpdate(selectedOrder.orderId, 'enviado')
                                     }
                                     disabled={selectedOrder.status === 'enviado'}
+                                    style={{ backgroundColor: statusColors.enviado }} // Use the color from your object
                                 >
-                                    <Tag color="green" style={{ margin: 0 }}>
-                                        ENVIADO
-                                    </Tag>
+                                    ENVIADO
                                 </Button>
                                 <Button
                                     size="small"
+                                    type="primary"
                                     onClick={() =>
                                         handleQuickStatusUpdate(selectedOrder.orderId, 'entregado')
                                     }
                                     disabled={selectedOrder.status === 'entregado'}
+                                    style={{ backgroundColor: statusColors.entregado }} // Use the color from your object
                                 >
-                                    <Tag color="success" style={{ margin: 0 }}>
-                                        ENTREGADO
-                                    </Tag>
+                                    ENTREGADO
                                 </Button>
                             </Space>
+                            <div style={{ marginTop: 24, textAlign: 'center' }}>
+                                <Button
+                                    size="middle"
+                                    danger
+                                    type="primary"
+                                    onClick={() => handleCancelOrder(selectedOrder.orderId)}
+                                    disabled={selectedOrder.status === 'cancelado'}
+                                >
+                                    Cancelar Pedido
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 )}
