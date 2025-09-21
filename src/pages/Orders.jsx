@@ -501,7 +501,7 @@ const Orders = () => {
                                         handleQuickStatusUpdate(selectedOrder.orderId, 'enviado')
                                     }
                                     disabled={selectedOrder.status === 'enviado'}
-                                    style={{ backgroundColor: 'MediumSeaGreen', color: 'white' }}
+                                    style={{ backgroundColor: 'DeepSkyBlue', color: 'white' }}
 
                                 >
                                     ENVIADO
@@ -512,7 +512,7 @@ const Orders = () => {
                                         handleQuickStatusUpdate(selectedOrder.orderId, 'entregado')
                                     }
                                     disabled={selectedOrder.status === 'entregado'}
-                                    style={{ backgroundColor: 'DeepSkyBlue', color: 'white' }}
+                                    style={{ backgroundColor: 'MediumSeaGreen', color: 'white' }}
 
                                 >
                                     ENTREGADO
