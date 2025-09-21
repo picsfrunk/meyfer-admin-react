@@ -44,7 +44,7 @@ const Orders = () => {
         pending: 'orange',
         procesado: 'blue',
         enviado: 'cyan',
-        entregado: 'PaleGreen',
+        entregado: 'LightGreen',
         cancelado: 'red',
         deleted: 'gray',
     };

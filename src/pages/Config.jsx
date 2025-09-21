@@ -59,7 +59,7 @@ const Config = () => {
         <div>
             <Title level={2}>Configuración del Sistema</Title>
 
-            <Row gutter={[16, 16]} justify="center">
+            <Row gutter={[16, 16]} justify="start">
                 <Col span={24} md={16} lg={12}>
                     <Card title="Margen de Ganancia" loading={loading}>
                         <Form
