@@ -55,10 +55,11 @@ export const configAPI = {
 export const productsAPI = {
     updateParsed: () => api.post('/config/parsed'),
     scrape: (data) => api.post('/config/scrape', data),
+    getCategories: () => api.get('/categories'),
 };
 
 export const ordersAPI = {
-    getAll: () => api.get('/orders'),
+    getAll: (url = '/orders') => api.get(url),
     getById: (id) => api.get(`/orders/${id}`),
     update: (id, data) => api.put(`/orders/${id}`, data),
     delete: (id) => api.delete(`/orders/${id}`),

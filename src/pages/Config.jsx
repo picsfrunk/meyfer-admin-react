@@ -4,8 +4,6 @@ import {
     Form,
     InputNumber,
     Button,
-    Space,
-    Alert,
     Typography,
     Statistic,
     Row,
@@ -13,31 +11,25 @@ import {
     Divider,
     message
 } from 'antd';
-import { SaveOutlined, ReloadOutlined, PercentageOutlined, CalendarOutlined } from '@ant-design/icons';
-import { configAPI, productsAPI } from '../services/api';
+import { SaveOutlined } from '@ant-design/icons';
+import { configAPI } from '../services/api';
 
 const { Title, Text } = Typography;
 
 const Config = () => {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
-    const [updateLoading, setUpdateLoading] = useState(false);
     const [margin, setMargin] = useState(null);
-    const [lastUpdate, setLastUpdate] = useState(null);
 
     const loadConfig = async () => {
         setLoading(true);
         try {
-            const [profitRes, updateRes] = await Promise.all([
-                configAPI.getProfit(),
-                configAPI.getLastUpdate()
-            ]);
+            const profitRes = await configAPI.getProfit();
 
             const marginValue = profitRes.data.margin;
             setMargin(marginValue);
             form.setFieldsValue({ margin: marginValue });
 
-            setLastUpdate(updateRes.data.lastUpdate);
         } catch (error) {
             message.error('Error al cargar la configuración');
             console.error('Error loading config:', error);
@@ -58,34 +50,17 @@ const Config = () => {
         setLoading(false);
     };
 
-    const handleUpdateCatalog = async () => {
-        setUpdateLoading(true);
-        try {
-            const response = await productsAPI.updateParsed();
-            message.success(`Catálogo actualizado: ${response.data.updatedCount} productos`);
-            await loadConfig(); // Recargar para obtener la nueva fecha
-        } catch (error) {
-            message.error('Error al actualizar el catálogo');
-            console.error('Error updating catalog:', error);
-        }
-        setUpdateLoading(false);
-    };
-
     useEffect(() => {
         loadConfig();
     }, []);
 
-    const formatDate = (dateString) => {
-        if (!dateString) return 'N/A';
-        return new Date(dateString).toLocaleString('es-AR');
-    };
 
     return (
         <div>
             <Title level={2}>Configuración del Sistema</Title>
 
-            <Row gutter={[16, 16]}>
-                <Col span={24} md={12}>
+            <Row gutter={[16, 16]} justify="start">
+                <Col span={24} md={16} lg={12}>
                     <Card title="Margen de Ganancia" loading={loading}>
                         <Form
                             form={form}
@@ -93,19 +68,19 @@ const Config = () => {
                             onFinish={handleUpdateMargin}
                         >
                             <Form.Item
-                                label="Margen de ganancia"
+                                label="Margen de ganancia (%)"
                                 name="margin"
                                 rules={[
                                     { required: true, message: 'El margen es requerido' },
-                                    { type: 'number', min: 1, message: 'El margen debe ser mayor a 1' }
+                                    { type: 'number', min: 0, max: 1000, message: 'El margen debe estar entre 0% y 1000%' }
                                 ]}
-                                help="Multiplicador aplicado a los precios base (ej: 1.27 = 27% de ganancia)"
+                                help="Porcentaje de ganancia aplicado al precio base (ej: 27 = 27% de ganancia)"
                             >
                                 <InputNumber
                                     style={{ width: '100%' }}
-                                    step={0.01}
-                                    precision={2}
-                                    addonAfter={<PercentageOutlined />}
+                                    step={0.1}
+                                    precision={1}
+                                    addonAfter="%"
                                 />
                             </Form.Item>
 
@@ -115,57 +90,27 @@ const Config = () => {
                                     htmlType="submit"
                                     loading={loading}
                                     icon={<SaveOutlined />}
+                                    block
                                 >
                                     Actualizar Margen
                                 </Button>
                             </Form.Item>
                         </Form>
 
-                        {margin && (
+                        {margin !== null && (
                             <>
                                 <Divider />
                                 <Statistic
                                     title="Margen Actual"
                                     value={margin}
-                                    precision={2}
-                                    suffix="x"
+                                    precision={1}
+                                    suffix="%"
                                 />
                                 <Text type="secondary">
-                                    Ganancia: {((margin - 1) * 100).toFixed(1)}%
+                                    Multiplicador: {(1 + margin / 100).toFixed(2)}x
                                 </Text>
                             </>
                         )}
-                    </Card>
-                </Col>
-
-                <Col span={24} md={12}>
-                    <Card title="Gestión de Catálogo">
-                        <Space direction="vertical" style={{ width: '100%' }}>
-                            <div>
-                                <CalendarOutlined style={{ marginRight: 8 }} />
-                                <Text strong>Última actualización:</Text>
-                            </div>
-                            <Text>{formatDate(lastUpdate)}</Text>
-
-                            <Divider />
-
-                            <Button
-                                type="primary"
-                                icon={<ReloadOutlined />}
-                                loading={updateLoading}
-                                onClick={handleUpdateCatalog}
-                                size="large"
-                            >
-                                Actualizar Catálogo
-                            </Button>
-
-                            <Alert
-                                message="Actualización Manual"
-                                description="Esta acción descarga y procesa el archivo XLS remoto para actualizar el catálogo de productos."
-                                type="info"
-                                showIcon
-                            />
-                        </Space>
                     </Card>
                 </Col>
             </Row>

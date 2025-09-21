@@ -23,10 +23,10 @@ const DashboardLayout = ({ children }) => {
 
     const menuItems = [
         {
-            key: '/',
-            icon: <SettingOutlined />,
-            label: 'Configuración',
-            onClick: () => navigate('/'),
+            key: '/orders',
+            icon: <FileTextOutlined />,
+            label: 'Pedidos',
+            onClick: () => navigate('/orders'),
         },
         {
             key: '/catalog',
@@ -35,11 +35,12 @@ const DashboardLayout = ({ children }) => {
             onClick: () => navigate('/catalog'),
         },
         {
-            key: '/orders',
-            icon: <FileTextOutlined />,
-            label: 'Pedidos',
-            onClick: () => navigate('/orders'),
+            key: '/',
+            icon: <SettingOutlined />,
+            label: 'Configuración',
+            onClick: () => navigate('/'),
         },
+
     ];
 
     const userMenuItems = [
@@ -68,7 +69,7 @@ const DashboardLayout = ({ children }) => {
                     color: 'white',
                     fontWeight: 'bold'
                 }}>
-                    {!collapsed ? 'Admin Panel' : 'AP'}
+                    {!collapsed ? 'MeyFer Panel' : 'MF'}
                 </div>
                 <Menu
                     theme="dark"
