@@ -55,10 +55,6 @@ const Login = () => {
                     name="login"
                     onFinish={handleSubmit}
                     autoComplete="off"
-                    initialValues={{
-                        username: 'admin',
-                        password: 'supersegura123'
-                    }}
                 >
                     <Form.Item
                         name="username"
@@ -105,9 +101,6 @@ const Login = () => {
                     </Form.Item>
                 </Form>
 
-                <div style={{ textAlign: 'center', marginTop: 16, fontSize: '12px', color: '#666' }}>
-                    Credenciales de prueba ya completadas
-                </div>
             </Card>
         </div>
     );
