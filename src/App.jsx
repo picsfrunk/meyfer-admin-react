@@ -8,7 +8,7 @@ import DashboardLayout from './components/DashboardLayout';
 import Login from './pages/Login';
 import Config from './pages/Config';
 import Catalog from './pages/Catalog';
-import Orders from './pages/Orders';
+import Orders from './pages/Orders/Orders.jsx';
 
 // Configuración de tema para Ant Design
 const theme = {
