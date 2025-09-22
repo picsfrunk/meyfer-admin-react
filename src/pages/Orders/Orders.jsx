@@ -58,7 +58,7 @@ const Orders = () => {
                 ? `?status=${encodeURIComponent(statusesToFetch.join(','))}`
                 : '';
             const { data } = await ordersAPI.getAll(`/orders${query}`);
-            setOrders(data);
+            setOrders(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error('Error loading orders:', error);
             message.error('Error al cargar los pedidos');
