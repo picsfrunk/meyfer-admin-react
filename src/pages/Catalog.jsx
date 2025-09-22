@@ -115,7 +115,7 @@ const Catalog = () => {
             // Si están todas seleccionadas, ejecutar scraper completo
             if (selectAll || selectedCategories.length === categories.length) {
                 const response = await productsAPI.scrape({
-                    scraperType: 'fullScraper'
+                    scraperType: 'categoryScraper'
                 });
                 message.success(`Scraper completo iniciado - Job ID: ${response.data.result.jobId}`);
             } else {
