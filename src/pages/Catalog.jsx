@@ -54,7 +54,7 @@ const Catalog = () => {
         setCategoriesLoading(true);
         try {
             const response = await productsAPI.getCategories();
-            setCategories(response.data.categories);
+            setCategories(Array.isArray(response.data.categories) ? response.data.categories : []);
             setTotalProducts(response.data.totalProducts);
         } catch (error) {
             message.error('Error al cargar las categorías');
