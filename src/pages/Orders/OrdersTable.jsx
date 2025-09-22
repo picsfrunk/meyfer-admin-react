@@ -8,44 +8,62 @@ const OrdersTable = ({ orders, loading, statusColors, onShowDetail, onEdit, onDe
             title: 'ID Pedido',
             dataIndex: 'orderId',
             key: 'orderId',
-            render: (_, record) => (
-                <Button type="link" onClick={() => onShowDetail(record)} style={{ padding: 0 }}>
-                    {record.orderId}
-                </Button>
-            ),
+            width: 150,
+            sorter: (a, b) => a.orderId.localeCompare(b.orderId),
+            defaultSortOrder: 'ascend',
         },
         {
             title: 'Cliente',
             key: 'customer',
-            render: (_, r) => (
+            render: (_, record) => (
                 <div>
-                    <div>{r.customerInfo.cliente}</div>
-                    <div style={{ fontSize: '12px', color: '#666' }}>{r.customerInfo.email}</div>
+                    <div>{record.customerInfo.cliente}</div>
+                    <div style={{ fontSize: '12px', color: '#666' }}>
+                        {record.customerInfo.email}
+                    </div>
                 </div>
             ),
+            sorter: (a, b) =>
+                a.customerInfo.cliente.localeCompare(b.customerInfo.cliente),
         },
         {
             title: 'Total',
             dataIndex: 'total',
-            render: (t) => `$${t.toLocaleString()}`,
+            key: 'total',
             width: 100,
+            render: (total) => `$${total.toLocaleString()}`,
+            sorter: (a, b) => a.total - b.total,
         },
         {
             title: 'Estado',
             dataIndex: 'status',
-            render: (s) => <Tag color={statusColors[s] || 'default'}>{s.toUpperCase()}</Tag>,
-            width: 100,
+            key: 'status',
+            render: (status) => (
+                <Tag color={statusColors[status] || 'default'}>
+                    {status.toUpperCase()}
+                </Tag>
+            ),
+            sorter: (a, b) => a.status.localeCompare(b.status),
+            width: 120,
         },
         {
             title: 'Acciones',
             key: 'actions',
-            render: (_, r) => (
+            render: (_, record) => (
                 <Space size="small">
-                    <Button icon={<EyeOutlined />} size="small" onClick={() => onShowDetail(r)} />
-                    <Button icon={<EditOutlined />} size="small" onClick={() => onEdit(r)} />
+                    <Button
+                        icon={<EyeOutlined />}
+                        size="small"
+                        onClick={() => onShowDetail(record)}
+                    />
+                    <Button
+                        icon={<EditOutlined />}
+                        size="small"
+                        onClick={() => onEdit(record)}
+                    />
                     <Popconfirm
                         title="¿Está seguro de eliminar este pedido?"
-                        onConfirm={() => onDelete(r.orderId)}
+                        onConfirm={() => onDelete(record.orderId)}
                         okText="Sí"
                         cancelText="No"
                     >
