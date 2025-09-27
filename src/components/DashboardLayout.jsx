@@ -35,10 +35,10 @@ const DashboardLayout = ({ children }) => {
             onClick: () => navigate('/catalog'),
         },
         {
-            key: '/',
+            key: '/config',
             icon: <SettingOutlined />,
             label: 'Configuración',
-            onClick: () => navigate('/'),
+            onClick: () => navigate('/config'),
         },
 
     ];

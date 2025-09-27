@@ -99,6 +99,16 @@ const Orders = () => {
         }
     };
 
+    const handleResendEmail = async (orderId) => {
+        try {
+            await ordersAPI.resendOrderEmail(orderId);
+            message.success('Correo reenviado correctamente');
+        } catch (error) {
+            message.error(`Error al reenviar correo de pedido ${orderId}`);
+            console.error(error);
+        }
+    };
+
     const handleDelete = async (orderId) => {
         try {
             await ordersAPI.delete(orderId);
@@ -168,6 +178,7 @@ const Orders = () => {
                 statusColors={statusColors}
                 onClose={() => setDetailModalVisible(false)}
                 onQuickStatusUpdate={handleStatusUpdate}
+                onResendEmail={handleResendEmail}
             />
         </div>
     );

@@ -1,9 +1,10 @@
 import React from 'react';
 import { Modal, Descriptions, Tag, Table, Typography, Space, Button } from 'antd';
+import { MailOutlined } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
 
-const OrderDetailModal = ({ visible, order, statusColors, onClose, onQuickStatusUpdate }) => {
+const OrderDetailModal = ({ visible, order, statusColors, onClose, onQuickStatusUpdate, onResendEmail }) => {
     if (!order) return null;
 
     const columns = [
@@ -83,6 +84,17 @@ const OrderDetailModal = ({ visible, order, statusColors, onClose, onQuickStatus
                         ENTREGADO
                     </Button>
                 </Space>
+
+                <div style={{ marginTop: 16, borderTop: '1px solid #f0f0f0', paddingTop: 16 }}>
+                    <Button
+                        type="default"
+                        icon={<MailOutlined />}
+                        onClick={() => onResendEmail(order.orderId)}
+                        style={{ marginRight: 8 }}
+                    >
+                        Reenviar Email de Confirmación
+                    </Button>
+                </div>
             </div>
         </Modal>
     );
