@@ -221,6 +221,54 @@ const Catalog = () => {
                 </Col>
             </Row>
 
+            {/* Card de Scraper Completo */}
+            <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+                <Col span={24}>
+                    <Card
+                        title={
+                            <Space>
+                                <PlayCircleOutlined />
+                                Scraper Completo
+                            </Space>
+                        }
+                    >
+                        <Space direction="vertical" style={{ width: '100%' }}>
+                            <Alert
+                                message="Actualización Total del Catálogo"
+                                description="Ejecuta un scraper completo de todas las categorías y productos. Esta operación puede tomar varios minutos."
+                                type="info"
+                                showIcon
+                            />
+
+                            <Button
+                                type="primary"
+                                danger
+                                icon={<PlayCircleOutlined />}
+                                loading={loading}
+                                onClick={async () => {
+                                    setLoading(true);
+                                    try {
+                                        const response = await productsAPI.scrape({
+                                            scraperType: "categoryScraper",
+                                            pageDelay: 800,
+                                            categoryDelay: 800
+                                        });
+                                        message.success(`Scraper completo iniciado - Job ID: ${response.data.result.jobId}`);
+                                    } catch (error) {
+                                        message.error('Error al iniciar el scraper completo');
+                                        console.error('Error starting full scraper:', error);
+                                    }
+                                    setLoading(false);
+                                }}
+                                size="large"
+                                block
+                            >
+                                Ejecutar Scraper Completo
+                            </Button>
+                        </Space>
+                    </Card>
+                </Col>
+            </Row>
             {/* Card de selección por categorías - Scraper */}
             <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
                 <Col span={24}>
