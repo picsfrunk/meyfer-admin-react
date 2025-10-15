@@ -30,7 +30,7 @@ function App() {
 
                         {/* Rutas protegidas */}
                         <Route
-                            path="/"
+                            path="/config"
                             element={
                                 <ProtectedRoute>
                                     <DashboardLayout>
@@ -63,7 +63,7 @@ function App() {
                         />
 
                         {/* Redirección por defecto */}
-                        <Route path="*" element={<Navigate to="/" replace />} />
+                        <Route path="*" element={<Navigate to="/orders" replace />} />
                     </Routes>
                 </Router>
             </AuthProvider>

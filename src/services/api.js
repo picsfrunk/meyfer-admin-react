@@ -67,4 +67,5 @@ export const ordersAPI = {
     update: (id, data) => api.put(`/orders/${id}`, data),
     delete: (id) => api.delete(`/orders/${id}`),
     updateStatus: (id, status) => api.patch(`/orders/${id}/status`, { status }),
+    resendOrderEmail: (id) => api.post(`/orders/${id}/resend-emails`),
 };
