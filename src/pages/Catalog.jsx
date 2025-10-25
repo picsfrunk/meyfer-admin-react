@@ -118,10 +118,10 @@ const Catalog = () => {
                 });
                 message.success(`Scraper completo iniciado - Job ID: ${response.data.result.jobId}`);
             } else {
-                const promises = selectedCategories.map(categoryId =>
+                const promises = selectedCategories.map(categoryIds =>
                     productsAPI.scrape({
                         scraperType: 'categoryScraper',
-                        categoryId: categoryId
+                        categoryIds: categoryIds
                     })
                 );
 
@@ -419,7 +419,7 @@ const Catalog = () => {
                                 onFinish={handleScrape}
                                 initialValues={{
                                     scraperType: 'categoryScraper',
-                                    categoryId: 8
+                                    categoryIds: 8
                                 }}
                             >
                                 <Form.Item
@@ -436,7 +436,7 @@ const Catalog = () => {
 
                                 <Form.Item
                                     label="ID de Categoría"
-                                    name="categoryId"
+                                    name="categoryIds"
                                     rules={[{ required: true, message: 'Ingrese el ID de la categoría' }]}
                                     help="ID numérico de la categoría a procesar"
                                 >
