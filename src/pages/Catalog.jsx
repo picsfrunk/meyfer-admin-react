@@ -118,15 +118,11 @@ const Catalog = () => {
                 });
                 message.success(`Scraper completo iniciado - Job ID: ${response.data.result.jobId}`);
             } else {
-                const promises = selectedCategories.map(categoryIds =>
-                    productsAPI.scrape({
-                        scraperType: 'categoryScraper',
-                        categoryIds: categoryIds
-                    })
-                );
-
-                const responses = await Promise.all(promises);
-                message.success(`Iniciados ${responses.length} scrapers para categorías seleccionadas`);
+                const response = await productsAPI.scrape({
+                    scraperType: 'categoryScraper',
+                    categoryIds: selectedCategories
+                });
+                message.success(`Scraper iniciado para ${selectedCategories.length} categorías - Job ID: ${response.data.result.jobId}`);
             }
 
             setSelectedCategories([]);
@@ -429,8 +425,7 @@ const Catalog = () => {
                                 >
                                     <Select placeholder="Seleccione el tipo de scraper">
                                         <Option value="categoryScraper">Scraper de Categorías</Option>
-                                        <Option value="productScraper">Scraper de Productos</Option>
-                                        <Option value="fullScraper">Scraper Completo</Option>
+                                        {/*<Option value="productScraper">Scraper de Productos</Option>*/}
                                     </Select>
                                 </Form.Item>
 
