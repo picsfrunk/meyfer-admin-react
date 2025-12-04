@@ -425,8 +425,7 @@ const Catalog = () => {
                                 >
                                     <Select placeholder="Seleccione el tipo de scraper">
                                         <Option value="categoryScraper">Scraper de Categorías</Option>
-                                        <Option value="productScraper">Scraper de Productos</Option>
-                                        <Option value="fullScraper">Scraper Completo</Option>
+                                        {/*<Option value="productScraper">Scraper de Productos</Option>*/}
                                     </Select>
                                 </Form.Item>
 
