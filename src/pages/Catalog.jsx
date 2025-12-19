@@ -15,7 +15,8 @@ import {
     Col,
     Checkbox,
     Tag,
-    Spin
+    Spin,
+    Collapse
 } from 'antd';
 import {
     PlayCircleOutlined,
@@ -29,6 +30,7 @@ import { productsAPI, configAPI } from '../services/api';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
+const { Panel } = Collapse;
 
 const Catalog = () => {
     const [form] = Form.useForm();
@@ -40,6 +42,18 @@ const Catalog = () => {
     const [totalProducts, setTotalProducts] = useState(0);
     const [selectedCategories, setSelectedCategories] = useState([]);
     const [selectAll, setSelectAll] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     const loadLastUpdate = async () => {
         try {
@@ -81,7 +95,7 @@ const Catalog = () => {
         try {
             const response = await productsAPI.updateParsed();
             message.success(`Catálogo actualizado: ${response.data.updatedCount} productos`);
-            await Promise.all([loadLastUpdate(), loadCategories()]); // Recargar ambos
+            await Promise.all([loadLastUpdate(), loadCategories()]);
         } catch (error) {
             message.error('Error al actualizar el catálogo');
             console.error('Error updating catalog:', error);
@@ -154,259 +168,256 @@ const Catalog = () => {
 
     return (
         <div>
-            <Title level={2}>Gestión de Catálogo</Title>
+            <Title level={2} style={{ fontSize: isMobile ? '20px' : '30px', marginBottom: isMobile ? '12px' : '24px' }}>
+                Gestión de Catálogo
+            </Title>
 
-            {/* Card de estadísticas horizontal - Principal */}
-            <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-                <Col span={24}>
-                    <Card
-                        title={
-                            <Space>
-                                <AppstoreOutlined />
-                                Estadísticas del Catálogo
-                            </Space>
-                        }
-                        loading={categoriesLoading}
-                        extra={
-                            <Button
-                                type="link"
-                                onClick={loadCategories}
-                                loading={categoriesLoading}
-                                icon={<ReloadOutlined />}
-                            >
-                                Actualizar estadísticas
-                            </Button>
-                        }
-                    >
-                        <Row gutter={[24, 16]} align="middle">
-                            <Col xs={24} sm={8}>
-                                <Statistic
-                                    title="Total de Productos"
-                                    value={totalProducts}
-                                    prefix={<ShoppingOutlined />}
-                                />
-                            </Col>
-
-                            <Col xs={24} sm={8}>
-                                <Statistic
-                                    title="Categorías Disponibles"
-                                    value={categories.length}
-                                    prefix={<AppstoreOutlined />}
-                                />
-                            </Col>
-
-                            <Col xs={24} sm={8}>
-                                {selectedCategories.length > 0 ? (
-                                    <Statistic
-                                        title="Productos Seleccionados"
-                                        value={totalSelectedProducts}
-                                        valueStyle={{ color: '#1890ff' }}
-                                        prefix={<PlayCircleOutlined />}
-                                    />
-                                ) : (
-                                    <Statistic
-                                        title="Última Actualización"
-                                        value={formatDate(lastUpdate)}
-                                        valueStyle={{ fontSize: '14px' }}
-                                        prefix={<CalendarOutlined />}
-                                    />
-                                )}
-                            </Col>
-                        </Row>
-                    </Card>
-                </Col>
-            </Row>
-
-            {/* Card de Scraper Completo */}
-            <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-                <Col span={24}>
-                    <Card
-                        title={
-                            <Space>
-                                <PlayCircleOutlined />
-                                Scraper Completo
-                            </Space>
-                        }
-                    >
-                        <Space direction="vertical" style={{ width: '100%' }}>
-                            <Alert
-                                message="Actualización Total del Catálogo"
-                                description="Ejecuta un scraper completo de todas las categorías y productos. Esta operación puede tomar varios minutos."
-                                type="info"
-                                showIcon
+            {/* Estadísticas */}
+            <Card
+                loading={categoriesLoading}
+                style={{ marginBottom: 16 }}
+                styles={{ body: { padding: isMobile ? '12px' : '24px' } }}
+            >
+                <Row gutter={[12, 12]}>
+                    <Col xs={12} sm={8}>
+                        <Statistic
+                            title="Productos"
+                            value={totalProducts}
+                            prefix={<ShoppingOutlined />}
+                            valueStyle={{ fontSize: isMobile ? '18px' : '24px' }}
+                        />
+                    </Col>
+                    <Col xs={12} sm={8}>
+                        <Statistic
+                            title="Categorías"
+                            value={categories.length}
+                            prefix={<AppstoreOutlined />}
+                            valueStyle={{ fontSize: isMobile ? '18px' : '24px' }}
+                        />
+                    </Col>
+                    <Col xs={24} sm={8}>
+                        {selectedCategories.length > 0 ? (
+                            <Statistic
+                                title="Seleccionados"
+                                value={totalSelectedProducts}
+                                valueStyle={{ color: '#1890ff', fontSize: isMobile ? '18px' : '24px' }}
+                                prefix={<PlayCircleOutlined />}
                             />
-
-                            <Button
-                                type="primary"
-                                danger
-                                icon={<PlayCircleOutlined />}
-                                loading={loading}
-                                onClick={async () => {
-                                    setLoading(true);
-                                    try {
-                                        const response = await productsAPI.scrape({
-                                            scraperType: "categoryScraper",
-                                            pageDelay: 800,
-                                            categoryDelay: 800
-                                        });
-                                        message.success(`Scraper completo iniciado - Job ID: ${response.data.result.jobId}`);
-                                    } catch (error) {
-                                        message.error('Error al iniciar el scraper completo');
-                                        console.error('Error starting full scraper:', error);
-                                    }
-                                    setLoading(false);
-                                }}
-                                size="large"
-                                block
-                            >
-                                Ejecutar Scraper Completo
-                            </Button>
-                        </Space>
-                    </Card>
-                </Col>
-            </Row>
-            {/* Card de selección por categorías - Scraper */}
-            <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-                <Col span={24}>
-                    <Card
-                        title={
-                            <Space>
-                                <AppstoreOutlined />
-                                Scraper por Categorías
-                            </Space>
-                        }
-                        extra={
-                            <Space>
-                                <Text type="secondary">
-                                    {selectedCategories.length} de {categories.length} seleccionadas
+                        ) : (
+                            <div>
+                                <Text type="secondary" style={{ fontSize: isMobile ? '11px' : '14px', display: 'block' }}>
+                                    Última Actualización
                                 </Text>
-                                <Button
-                                    type="primary"
-                                    disabled={selectedCategories.length === 0}
-                                    loading={loading}
-                                    onClick={handleScrapeBatch}
-                                    icon={<PlayCircleOutlined />}
-                                >
-                                    Ejecutar Seleccionadas ({totalSelectedProducts} productos)
-                                </Button>
-                            </Space>
-                        }
+                                <Text strong style={{ fontSize: isMobile ? '11px' : '14px' }}>
+                                    {formatDate(lastUpdate)}
+                                </Text>
+                            </div>
+                        )}
+                    </Col>
+                </Row>
+                {!isMobile && (
+                    <Button
+                        type="link"
+                        onClick={loadCategories}
+                        loading={categoriesLoading}
+                        icon={<ReloadOutlined />}
+                        style={{ marginTop: 12 }}
                     >
-                        <Space direction="vertical" style={{ width: '100%' }}>
-                            <Alert
-                                message="Scraper por Lotes"
-                                description="Selecciona las categorías que deseas actualizar. Usar 'Seleccionar Todo' ejecutará un scraper completo más eficiente."
-                                type="info"
-                                showIcon
-                            />
+                        Actualizar estadísticas
+                    </Button>
+                )}
+            </Card>
 
-                            <Checkbox
-                                checked={selectAll}
-                                onChange={handleSelectAll}
-                                disabled={categoriesLoading}
-                            >
-                                <Text strong>Seleccionar Todo ({totalProducts} productos)</Text>
-                            </Checkbox>
+            {/* Scraper Completo */}
+            <Card
+                style={{ marginBottom: 16 }}
+                styles={{ body: { padding: isMobile ? '12px' : '24px' } }}
+            >
+                <Space direction="vertical" style={{ width: '100%' }} size={isMobile ? 8 : 16}>
+                    <Space>
+                        <PlayCircleOutlined style={{ fontSize: isMobile ? '16px' : '18px' }} />
+                        <Text strong style={{ fontSize: isMobile ? '14px' : '16px' }}>
+                            Scraper Completo
+                        </Text>
+                    </Space>
 
-                            <Divider style={{ margin: '12px 0' }} />
+                    <Alert
+                        message="Actualización Total del Catálogo"
+                        description={isMobile ? "Scraper completo de todas las categorías." : "Ejecuta un scraper completo de todas las categorías y productos. Esta operación puede tomar varios minutos."}
+                        type="info"
+                        showIcon
+                        style={{ fontSize: isMobile ? '12px' : '14px' }}
+                    />
 
-                            {categoriesLoading ? (
-                                <div style={{ textAlign: 'center', padding: '20px' }}>
-                                    <Spin tip="Cargando categorías..." />
-                                </div>
-                            ) : (
-                                <Checkbox.Group
-                                    value={selectedCategories}
-                                    onChange={handleCategoryChange}
-                                    style={{ width: '100%' }}
-                                    disabled={selectAll}
-                                >
-                                    <Row gutter={[8, 8]}>
-                                        {categories.map((category) => (
-                                            <Col span={24} sm={12} md={8} lg={6} key={category.category_id}>
-                                                <Checkbox
-                                                    value={category.category_id}
-                                                    style={{ width: '100%' }}
-                                                >
-                                                    <Space direction="vertical" size={0} style={{ width: '100%' }}>
-                                                        <Text strong>{category.category_name}</Text>
-                                                        <Tag color="blue">{category.product_count} productos</Tag>
-                                                    </Space>
-                                                </Checkbox>
-                                            </Col>
-                                        ))}
-                                    </Row>
-                                </Checkbox.Group>
-                            )}
+                    <Button
+                        type="primary"
+                        danger
+                        icon={<PlayCircleOutlined />}
+                        loading={loading}
+                        onClick={async () => {
+                            setLoading(true);
+                            try {
+                                const response = await productsAPI.scrape({
+                                    scraperType: "categoryScraper",
+                                    pageDelay: 800,
+                                    categoryDelay: 800
+                                });
+                                message.success(`Scraper completo iniciado - Job ID: ${response.data.result.jobId}`);
+                            } catch (error) {
+                                message.error('Error al iniciar el scraper completo');
+                                console.error('Error starting full scraper:', error);
+                            }
+                            setLoading(false);
+                        }}
+                        size={isMobile ? 'middle' : 'large'}
+                        block
+                    >
+                        Ejecutar Scraper Completo
+                    </Button>
+                </Space>
+            </Card>
+
+            {/* Scraper por Categorías */}
+            <Card
+                style={{ marginBottom: 16 }}
+                styles={{ body: { padding: isMobile ? '12px' : '24px' } }}
+            >
+                <Space direction="vertical" style={{ width: '100%' }} size={isMobile ? 8 : 16}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                        <Space>
+                            <AppstoreOutlined style={{ fontSize: isMobile ? '16px' : '18px' }} />
+                            <Text strong style={{ fontSize: isMobile ? '14px' : '16px' }}>
+                                Scraper por Categorías
+                            </Text>
                         </Space>
-                    </Card>
-                </Col>
-            </Row>
+                        {!isMobile && (
+                            <Text type="secondary" style={{ fontSize: '12px' }}>
+                                {selectedCategories.length} de {categories.length} seleccionadas
+                            </Text>
+                        )}
+                    </div>
 
-            {/* Cards inferiores - Excel y Scraper Manual */}
-            <Row gutter={[16, 16]}>
-                {/* Card de actualización Excel */}
-                <Col span={24} lg={12}>
-                    <Card
-                        title={
+                    <Alert
+                        message="Scraper por Lotes"
+                        description={isMobile ? "Selecciona categorías para actualizar." : "Selecciona las categorías que deseas actualizar. Usar 'Seleccionar Todo' ejecutará un scraper completo más eficiente."}
+                        type="info"
+                        showIcon
+                        style={{ fontSize: isMobile ? '12px' : '14px' }}
+                    />
+
+                    <Checkbox
+                        checked={selectAll}
+                        onChange={handleSelectAll}
+                        disabled={categoriesLoading}
+                        style={{ fontSize: isMobile ? '13px' : '14px' }}
+                    >
+                        <Text strong>Seleccionar Todo ({totalProducts} productos)</Text>
+                    </Checkbox>
+
+                    <Divider style={{ margin: isMobile ? '8px 0' : '12px 0' }} />
+
+                    {categoriesLoading ? (
+                        <div style={{ textAlign: 'center', padding: '20px' }}>
+                            <Spin tip="Cargando..." />
+                        </div>
+                    ) : (
+                        <Checkbox.Group
+                            value={selectedCategories}
+                            onChange={handleCategoryChange}
+                            style={{ width: '100%' }}
+                            disabled={selectAll}
+                        >
+                            <Row gutter={[8, 8]}>
+                                {categories.map((category) => (
+                                    <Col span={isMobile ? 24 : 12} md={8} lg={6} key={category.category_id}>
+                                        <Checkbox
+                                            value={category.category_id}
+                                            style={{ width: '100%' }}
+                                        >
+                                            <Space direction="vertical" size={0} style={{ width: '100%' }}>
+                                                <Text strong style={{ fontSize: isMobile ? '12px' : '14px' }}>
+                                                    {category.category_name}
+                                                </Text>
+                                                <Tag color="blue" style={{ fontSize: isMobile ? '10px' : '12px' }}>
+                                                    {category.product_count} productos
+                                                </Tag>
+                                            </Space>
+                                        </Checkbox>
+                                    </Col>
+                                ))}
+                            </Row>
+                        </Checkbox.Group>
+                    )}
+
+                    <Button
+                        type="primary"
+                        disabled={selectedCategories.length === 0}
+                        loading={loading}
+                        onClick={handleScrapeBatch}
+                        icon={<PlayCircleOutlined />}
+                        size={isMobile ? 'middle' : 'large'}
+                        block
+                    >
+                        Ejecutar Seleccionadas ({totalSelectedProducts} productos)
+                    </Button>
+                </Space>
+            </Card>
+
+            {/* Actualización desde Excel y Scraper Manual */}
+            {isMobile ? (
+                // En móvil usamos Collapse para ahorrar espacio
+                <Collapse defaultActiveKey={[]}>
+                    <Panel
+                        header={
                             <Space>
                                 <FileExcelOutlined />
-                                Actualización desde Excel
+                                <Text strong>Actualización desde Excel</Text>
                             </Space>
                         }
-                        style={{ height: '100%' }}
+                        key="excel"
                     >
-                        <Space direction="vertical" style={{ width: '100%' }}>
+                        <Space direction="vertical" style={{ width: '100%' }} size={12}>
                             <Alert
-                                message="Actualización de Catálogo"
-                                description="Descarga y procesa el archivo XLS remoto para actualizar precios y disponibilidad de productos."
+                                message="Actualiza precios y disponibilidad desde archivo XLS remoto."
                                 type="success"
                                 showIcon
-                                size="small"
+                                style={{ fontSize: '12px' }}
                             />
 
                             <div style={{ textAlign: 'center' }}>
-                                <div style={{ marginBottom: 8 }}>
-                                    <CalendarOutlined style={{ marginRight: 8 }} />
-                                    <Text strong>Última actualización:</Text>
-                                </div>
-                                <Text type="secondary">{formatDate(lastUpdate)}</Text>
+                                <Text type="secondary" style={{ fontSize: '11px', display: 'block' }}>
+                                    <CalendarOutlined /> Última actualización:
+                                </Text>
+                                <Text style={{ fontSize: '11px' }}>{formatDate(lastUpdate)}</Text>
                             </div>
-
-                            <Divider style={{ margin: '16px 0' }} />
 
                             <Button
                                 type="primary"
                                 icon={<ReloadOutlined />}
                                 loading={updateLoading}
                                 onClick={handleUpdateCatalog}
-                                size="large"
                                 block
                             >
-                                Actualizar Catálogo desde Excel
+                                Actualizar desde Excel
                             </Button>
                         </Space>
-                    </Card>
-                </Col>
+                    </Panel>
 
-                {/* Card de scraper manual */}
-                <Col span={24} lg={12}>
-                    <Card
-                        title={
+                    <Panel
+                        header={
                             <Space>
                                 <PlayCircleOutlined />
-                                Scraper Manual
+                                <Text strong>Scraper Manual</Text>
                             </Space>
                         }
-                        style={{ height: '100%' }}
+                        key="manual"
                     >
-                        <Space direction="vertical" style={{ width: '100%' }}>
+                        <Space direction="vertical" style={{ width: '100%' }} size={12}>
                             <Alert
-                                message="Scraper Individual"
-                                description="Ejecuta scraper para una categoría específica o tipo particular de contenido."
+                                message="Ejecuta scraper para una categoría específica."
                                 type="warning"
                                 showIcon
-                                size="small"
+                                style={{ fontSize: '12px' }}
                             />
 
                             <Form
@@ -419,21 +430,21 @@ const Catalog = () => {
                                 }}
                             >
                                 <Form.Item
-                                    label="Tipo de Scraper"
+                                    label={<Text style={{ fontSize: '12px' }}>Tipo de Scraper</Text>}
                                     name="scraperType"
-                                    rules={[{ required: true, message: 'Seleccione el tipo de scraper' }]}
+                                    rules={[{ required: true }]}
+                                    style={{ marginBottom: 12 }}
                                 >
-                                    <Select placeholder="Seleccione el tipo de scraper">
+                                    <Select size="middle">
                                         <Option value="categoryScraper">Scraper de Categorías</Option>
-                                        {/*<Option value="productScraper">Scraper de Productos</Option>*/}
                                     </Select>
                                 </Form.Item>
 
                                 <Form.Item
-                                    label="ID de Categoría"
+                                    label={<Text style={{ fontSize: '12px' }}>ID de Categoría</Text>}
                                     name="categoryIds"
-                                    rules={[{ required: true, message: 'Ingrese el ID de la categoría' }]}
-                                    help="ID numérico de la categoría a procesar"
+                                    rules={[{ required: true }]}
+                                    style={{ marginBottom: 12 }}
                                 >
                                     <InputNumber
                                         style={{ width: '100%' }}
@@ -442,7 +453,7 @@ const Catalog = () => {
                                     />
                                 </Form.Item>
 
-                                <Form.Item>
+                                <Form.Item style={{ marginBottom: 0 }}>
                                     <Button
                                         type="primary"
                                         htmlType="submit"
@@ -450,14 +461,127 @@ const Catalog = () => {
                                         icon={<PlayCircleOutlined />}
                                         block
                                     >
-                                        Ejecutar Scraper
+                                        Ejecutar
                                     </Button>
                                 </Form.Item>
                             </Form>
                         </Space>
-                    </Card>
-                </Col>
-            </Row>
+                    </Panel>
+                </Collapse>
+            ) : (
+                // En desktop mantenemos el diseño de dos columnas
+                <Row gutter={[16, 16]}>
+                    <Col span={24} lg={12}>
+                        <Card
+                            title={
+                                <Space>
+                                    <FileExcelOutlined />
+                                    Actualización desde Excel
+                                </Space>
+                            }
+                            style={{ height: '100%' }}
+                        >
+                            <Space direction="vertical" style={{ width: '100%' }}>
+                                <Alert
+                                    message="Actualización de Catálogo"
+                                    description="Descarga y procesa el archivo XLS remoto para actualizar precios y disponibilidad de productos."
+                                    type="success"
+                                    showIcon
+                                    size="small"
+                                />
+
+                                <div style={{ textAlign: 'center' }}>
+                                    <div style={{ marginBottom: 8 }}>
+                                        <CalendarOutlined style={{ marginRight: 8 }} />
+                                        <Text strong>Última actualización:</Text>
+                                    </div>
+                                    <Text type="secondary">{formatDate(lastUpdate)}</Text>
+                                </div>
+
+                                <Divider style={{ margin: '16px 0' }} />
+
+                                <Button
+                                    type="primary"
+                                    icon={<ReloadOutlined />}
+                                    loading={updateLoading}
+                                    onClick={handleUpdateCatalog}
+                                    size="large"
+                                    block
+                                >
+                                    Actualizar Catálogo desde Excel
+                                </Button>
+                            </Space>
+                        </Card>
+                    </Col>
+
+                    <Col span={24} lg={12}>
+                        <Card
+                            title={
+                                <Space>
+                                    <PlayCircleOutlined />
+                                    Scraper Manual
+                                </Space>
+                            }
+                            style={{ height: '100%' }}
+                        >
+                            <Space direction="vertical" style={{ width: '100%' }}>
+                                <Alert
+                                    message="Scraper Individual"
+                                    description="Ejecuta scraper para una categoría específica o tipo particular de contenido."
+                                    type="warning"
+                                    showIcon
+                                    size="small"
+                                />
+
+                                <Form
+                                    form={form}
+                                    layout="vertical"
+                                    onFinish={handleScrape}
+                                    initialValues={{
+                                        scraperType: 'categoryScraper',
+                                        categoryIds: 8
+                                    }}
+                                >
+                                    <Form.Item
+                                        label="Tipo de Scraper"
+                                        name="scraperType"
+                                        rules={[{ required: true, message: 'Seleccione el tipo de scraper' }]}
+                                    >
+                                        <Select placeholder="Seleccione el tipo de scraper">
+                                            <Option value="categoryScraper">Scraper de Categorías</Option>
+                                        </Select>
+                                    </Form.Item>
+
+                                    <Form.Item
+                                        label="ID de Categoría"
+                                        name="categoryIds"
+                                        rules={[{ required: true, message: 'Ingrese el ID de la categoría' }]}
+                                        help="ID numérico de la categoría a procesar"
+                                    >
+                                        <InputNumber
+                                            style={{ width: '100%' }}
+                                            min={1}
+                                            placeholder="Ej: 8"
+                                        />
+                                    </Form.Item>
+
+                                    <Form.Item>
+                                        <Button
+                                            type="primary"
+                                            htmlType="submit"
+                                            loading={loading}
+                                            icon={<PlayCircleOutlined />}
+                                            block
+                                        >
+                                            Ejecutar Scraper
+                                        </Button>
+                                    </Form.Item>
+                                </Form>
+                            </Space>
+                        </Card>
+                    </Col>
+                </Row>
+            )}
         </div>
     );
 };
