@@ -16,7 +16,8 @@ import {
     Checkbox,
     Tag,
     Spin,
-    Collapse
+    Collapse,
+    Modal,
 } from 'antd';
 import {
     PlayCircleOutlined,
@@ -24,7 +25,8 @@ import {
     ReloadOutlined,
     CalendarOutlined,
     FileExcelOutlined,
-    AppstoreOutlined
+    AppstoreOutlined,
+    ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import { productsAPI, configAPI } from '../services/api';
 
@@ -45,13 +47,9 @@ const Catalog = () => {
     const [isMobile, setIsMobile] = useState(false);
 
     useEffect(() => {
-        const checkMobile = () => {
-            setIsMobile(window.innerWidth < 768);
-        };
-
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
         checkMobile();
         window.addEventListener('resize', checkMobile);
-
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
@@ -72,36 +70,54 @@ const Catalog = () => {
             setTotalProducts(response.data.totalProducts);
         } catch (error) {
             message.error('Error al cargar las categorías');
-            console.error('Error loading categories:', error);
         }
         setCategoriesLoading(false);
     };
 
-    const handleScrape = async (values) => {
-        setLoading(true);
-        try {
-            const response = await productsAPI.scrape(values);
-            message.success(`Scraper iniciado - Job ID: ${response.data.result.jobId}`);
-            form.resetFields();
-        } catch (error) {
-            message.error('Error al iniciar el scraper');
-            console.error('Error starting scraper:', error);
-        }
-        setLoading(false);
+    useEffect(() => {
+        loadLastUpdate();
+        loadCategories();
+    }, []);
+
+    const formatDate = (dateString) => {
+        if (!dateString) return 'N/A';
+        return new Date(dateString).toLocaleString('es-AR');
     };
 
-    const handleUpdateCatalog = async () => {
-        setUpdateLoading(true);
-        try {
-            const response = await productsAPI.updateParsed();
-            message.success(`Catálogo actualizado: ${response.data.updatedCount} productos`);
-            await Promise.all([loadLastUpdate(), loadCategories()]);
-        } catch (error) {
-            message.error('Error al actualizar el catálogo');
-            console.error('Error updating catalog:', error);
-        }
-        setUpdateLoading(false);
+    // ── Scraper Completo ────────────────────────────────────────────────────
+
+    const handleScrapeComplete = () => {
+        Modal.confirm({
+            title: '¿Ejecutar scraper completo?',
+            icon: <ExclamationCircleOutlined />,
+            content: (
+                <Space direction="vertical" size={4}>
+                    <Text>Esto va a actualizar <Text strong>todo el catálogo</Text> ({totalProducts} productos).</Text>
+                    <Text type="secondary">La operación puede demorar varios minutos.</Text>
+                </Space>
+            ),
+            okText: 'Sí, ejecutar',
+            okType: 'danger',
+            cancelText: 'Cancelar',
+            onOk: async () => {
+                setLoading(true);
+                try {
+                    const response = await productsAPI.scrape({
+                        scraperType: 'categoryScraper',
+                        pageDelay: 800,
+                        categoryDelay: 800,
+                    });
+                    message.success(`Scraper completo iniciado — Job ID: ${response.data.result?.jobId ?? '—'}`);
+                } catch (error) {
+                    message.error('Error al iniciar el scraper completo');
+                } finally {
+                    setLoading(false);
+                }
+            },
+        });
     };
+
+    // ── Scraper por Categorías ──────────────────────────────────────────────
 
     const handleCategoryChange = (categoryIds) => {
         setSelectedCategories(categoryIds);
@@ -111,60 +127,118 @@ const Catalog = () => {
     const handleSelectAll = (e) => {
         const checked = e.target.checked;
         setSelectAll(checked);
-        if (checked) {
-            setSelectedCategories(categories.map(cat => cat.category_id));
-        } else {
-            setSelectedCategories([]);
-        }
+        setSelectedCategories(checked ? categories.map(c => c.category_id) : []);
     };
 
-    const handleScrapeBatch = async () => {
+    const handleScrapeBatch = () => {
         if (selectedCategories.length === 0) {
-            message.warning('Debe seleccionar al menos una categoría');
+            message.warning('Seleccioná al menos una categoría');
             return;
         }
 
-        setLoading(true);
+        const isAll = selectAll || selectedCategories.length === categories.length;
+        const selectedCategoriesData = categories.filter(c => selectedCategories.includes(c.category_id));
+        const totalSelected = selectedCategoriesData.reduce((sum, c) => sum + c.product_count, 0);
+
+        Modal.confirm({
+            title: isAll ? '¿Ejecutar scraper completo?' : `¿Ejecutar ${selectedCategories.length} categorías?`,
+            icon: <ExclamationCircleOutlined />,
+            content: isAll ? (
+                <Space direction="vertical" size={4}>
+                    <Text>Se van a actualizar <Text strong>todas las categorías</Text> ({totalProducts} productos).</Text>
+                    <Text type="secondary">La operación puede demorar varios minutos.</Text>
+                </Space>
+            ) : (
+                <Space direction="vertical" size={4}>
+                    <Text>
+                        Se van a actualizar <Text strong>{selectedCategories.length} categorías</Text> con un total de{' '}
+                        <Text strong>{totalSelected} productos</Text>.
+                    </Text>
+                    <div style={{ marginTop: 8 }}>
+                        {selectedCategoriesData.slice(0, 5).map(c => (
+                            <Tag key={c.category_id} style={{ marginBottom: 4 }}>{c.category_name}</Tag>
+                        ))}
+                        {selectedCategoriesData.length > 5 && (
+                            <Tag>+{selectedCategoriesData.length - 5} más</Tag>
+                        )}
+                    </div>
+                </Space>
+            ),
+            okText: 'Sí, ejecutar',
+            okType: 'primary',
+            cancelText: 'Cancelar',
+            onOk: async () => {
+                setLoading(true);
+                try {
+                    const payload = isAll
+                        ? { scraperType: 'categoryScraper' }
+                        : { scraperType: 'categoryScraper', categoryIds: selectedCategories };
+
+                    const response = await productsAPI.scrape(payload);
+                    message.success(
+                        isAll
+                            ? `Scraper completo iniciado — Job ID: ${response.data.result?.jobId ?? '—'}`
+                            : `Scraper iniciado para ${selectedCategories.length} categorías — Job ID: ${response.data.result?.jobId ?? '—'}`
+                    );
+                    setSelectedCategories([]);
+                    setSelectAll(false);
+                } catch (error) {
+                    message.error('Error al iniciar el scraper');
+                } finally {
+                    setLoading(false);
+                }
+            },
+        });
+    };
+
+    // ── Scraper Manual ──────────────────────────────────────────────────────
+
+    const handleScrape = (values) => {
+        Modal.confirm({
+            title: '¿Ejecutar scraper manual?',
+            icon: <ExclamationCircleOutlined />,
+            content: (
+                <Text>
+                    Se va a correr el scraper para la categoría ID{' '}
+                    <Text strong>{values.categoryIds}</Text>.
+                </Text>
+            ),
+            okText: 'Sí, ejecutar',
+            okType: 'primary',
+            cancelText: 'Cancelar',
+            onOk: async () => {
+                setLoading(true);
+                try {
+                    const response = await productsAPI.scrape(values);
+                    message.success(`Scraper iniciado — Job ID: ${response.data.result?.jobId ?? '—'}`);
+                    form.resetFields();
+                } catch (error) {
+                    message.error('Error al iniciar el scraper');
+                } finally {
+                    setLoading(false);
+                }
+            },
+        });
+    };
+
+    // ── Actualización desde Excel ───────────────────────────────────────────
+
+    const handleUpdateCatalog = async () => {
+        setUpdateLoading(true);
         try {
-            if (selectAll || selectedCategories.length === categories.length) {
-                const response = await productsAPI.scrape({
-                    scraperType: 'categoryScraper'
-                });
-                message.success(`Scraper completo iniciado - Job ID: ${response.data.result.jobId}`);
-            } else {
-                const response = await productsAPI.scrape({
-                    scraperType: 'categoryScraper',
-                    categoryIds: selectedCategories
-                });
-                message.success(`Scraper iniciado para ${selectedCategories.length} categorías - Job ID: ${response.data.result.jobId}`);
-            }
-
-            setSelectedCategories([]);
-            setSelectAll(false);
+            const response = await productsAPI.updateParsed();
+            message.success(`Catálogo actualizado: ${response.data.updatedCount} productos`);
+            await Promise.all([loadLastUpdate(), loadCategories()]);
         } catch (error) {
-            message.error('Error al iniciar el scraper por lotes');
-            console.error('Error starting batch scraper:', error);
+            message.error('Error al actualizar el catálogo');
         }
-        setLoading(false);
+        setUpdateLoading(false);
     };
 
-    const formatDate = (dateString) => {
-        if (!dateString) return 'N/A';
-        return new Date(dateString).toLocaleString('es-AR');
-    };
+    // ── Render ──────────────────────────────────────────────────────────────
 
-    useEffect(() => {
-        loadLastUpdate();
-        loadCategories();
-    }, []);
-
-    const selectedCategoriesData = categories.filter(cat =>
-        selectedCategories.includes(cat.category_id)
-    );
-
-    const totalSelectedProducts = selectedCategoriesData.reduce(
-        (sum, cat) => sum + cat.product_count, 0
-    );
+    const selectedCategoriesData = categories.filter(c => selectedCategories.includes(c.category_id));
+    const totalSelectedProducts  = selectedCategoriesData.reduce((sum, c) => sum + c.product_count, 0);
 
     return (
         <div>
@@ -240,35 +314,21 @@ const Catalog = () => {
                             Scraper Completo
                         </Text>
                     </Space>
-
                     <Alert
                         message="Actualización Total del Catálogo"
-                        description={isMobile ? "Scraper completo de todas las categorías." : "Ejecuta un scraper completo de todas las categorías y productos. Esta operación puede tomar varios minutos."}
+                        description={isMobile
+                            ? 'Scraper completo de todas las categorías.'
+                            : 'Ejecuta un scraper completo de todas las categorías y productos. Esta operación puede tomar varios minutos.'}
                         type="info"
                         showIcon
                         style={{ fontSize: isMobile ? '12px' : '14px' }}
                     />
-
                     <Button
                         type="primary"
                         danger
                         icon={<PlayCircleOutlined />}
                         loading={loading}
-                        onClick={async () => {
-                            setLoading(true);
-                            try {
-                                const response = await productsAPI.scrape({
-                                    scraperType: "categoryScraper",
-                                    pageDelay: 800,
-                                    categoryDelay: 800
-                                });
-                                message.success(`Scraper completo iniciado - Job ID: ${response.data.result.jobId}`);
-                            } catch (error) {
-                                message.error('Error al iniciar el scraper completo');
-                                console.error('Error starting full scraper:', error);
-                            }
-                            setLoading(false);
-                        }}
+                        onClick={handleScrapeComplete}
                         size={isMobile ? 'middle' : 'large'}
                         block
                     >
@@ -296,15 +356,15 @@ const Catalog = () => {
                             </Text>
                         )}
                     </div>
-
                     <Alert
                         message="Scraper por Lotes"
-                        description={isMobile ? "Selecciona categorías para actualizar." : "Selecciona las categorías que deseas actualizar. Usar 'Seleccionar Todo' ejecutará un scraper completo más eficiente."}
+                        description={isMobile
+                            ? 'Selecciona categorías para actualizar.'
+                            : "Selecciona las categorías que deseas actualizar. Usar 'Seleccionar Todo' ejecutará un scraper completo más eficiente."}
                         type="info"
                         showIcon
                         style={{ fontSize: isMobile ? '12px' : '14px' }}
                     />
-
                     <Checkbox
                         checked={selectAll}
                         onChange={handleSelectAll}
@@ -313,9 +373,7 @@ const Catalog = () => {
                     >
                         <Text strong>Seleccionar Todo ({totalProducts} productos)</Text>
                     </Checkbox>
-
                     <Divider style={{ margin: isMobile ? '8px 0' : '12px 0' }} />
-
                     {categoriesLoading ? (
                         <div style={{ textAlign: 'center', padding: '20px' }}>
                             <Spin tip="Cargando..." />
@@ -330,10 +388,7 @@ const Catalog = () => {
                             <Row gutter={[8, 8]}>
                                 {categories.map((category) => (
                                     <Col span={isMobile ? 24 : 12} md={8} lg={6} key={category.category_id}>
-                                        <Checkbox
-                                            value={category.category_id}
-                                            style={{ width: '100%' }}
-                                        >
+                                        <Checkbox value={category.category_id} style={{ width: '100%' }}>
                                             <Space direction="vertical" size={0} style={{ width: '100%' }}>
                                                 <Text strong style={{ fontSize: isMobile ? '12px' : '14px' }}>
                                                     {category.category_name}
@@ -348,7 +403,6 @@ const Catalog = () => {
                             </Row>
                         </Checkbox.Group>
                     )}
-
                     <Button
                         type="primary"
                         disabled={selectedCategories.length === 0}
@@ -363,17 +417,11 @@ const Catalog = () => {
                 </Space>
             </Card>
 
-            {/* Actualización desde Excel y Scraper Manual */}
+            {/* Actualización desde Excel + Scraper Manual */}
             {isMobile ? (
-                // En móvil usamos Collapse para ahorrar espacio
                 <Collapse defaultActiveKey={[]}>
                     <Panel
-                        header={
-                            <Space>
-                                <FileExcelOutlined />
-                                <Text strong>Actualización desde Excel</Text>
-                            </Space>
-                        }
+                        header={<Space><FileExcelOutlined /><Text strong>Actualización desde Excel</Text></Space>}
                         key="excel"
                     >
                         <Space direction="vertical" style={{ width: '100%' }} size={12}>
@@ -383,14 +431,12 @@ const Catalog = () => {
                                 showIcon
                                 style={{ fontSize: '12px' }}
                             />
-
                             <div style={{ textAlign: 'center' }}>
                                 <Text type="secondary" style={{ fontSize: '11px', display: 'block' }}>
                                     <CalendarOutlined /> Última actualización:
                                 </Text>
                                 <Text style={{ fontSize: '11px' }}>{formatDate(lastUpdate)}</Text>
                             </div>
-
                             <Button
                                 type="primary"
                                 icon={<ReloadOutlined />}
@@ -404,12 +450,7 @@ const Catalog = () => {
                     </Panel>
 
                     <Panel
-                        header={
-                            <Space>
-                                <PlayCircleOutlined />
-                                <Text strong>Scraper Manual</Text>
-                            </Space>
-                        }
+                        header={<Space><PlayCircleOutlined /><Text strong>Scraper Manual</Text></Space>}
                         key="manual"
                     >
                         <Space direction="vertical" style={{ width: '100%' }} size={12}>
@@ -419,15 +460,11 @@ const Catalog = () => {
                                 showIcon
                                 style={{ fontSize: '12px' }}
                             />
-
                             <Form
                                 form={form}
                                 layout="vertical"
                                 onFinish={handleScrape}
-                                initialValues={{
-                                    scraperType: 'categoryScraper',
-                                    categoryIds: 8
-                                }}
+                                initialValues={{ scraperType: 'categoryScraper', categoryIds: 8 }}
                             >
                                 <Form.Item
                                     label={<Text style={{ fontSize: '12px' }}>Tipo de Scraper</Text>}
@@ -439,20 +476,14 @@ const Catalog = () => {
                                         <Option value="categoryScraper">Scraper de Categorías</Option>
                                     </Select>
                                 </Form.Item>
-
                                 <Form.Item
                                     label={<Text style={{ fontSize: '12px' }}>ID de Categoría</Text>}
                                     name="categoryIds"
                                     rules={[{ required: true }]}
                                     style={{ marginBottom: 12 }}
                                 >
-                                    <InputNumber
-                                        style={{ width: '100%' }}
-                                        min={1}
-                                        placeholder="Ej: 8"
-                                    />
+                                    <InputNumber style={{ width: '100%' }} min={1} placeholder="Ej: 8" />
                                 </Form.Item>
-
                                 <Form.Item style={{ marginBottom: 0 }}>
                                     <Button
                                         type="primary"
@@ -469,16 +500,10 @@ const Catalog = () => {
                     </Panel>
                 </Collapse>
             ) : (
-                // En desktop mantenemos el diseño de dos columnas
                 <Row gutter={[16, 16]}>
                     <Col span={24} lg={12}>
                         <Card
-                            title={
-                                <Space>
-                                    <FileExcelOutlined />
-                                    Actualización desde Excel
-                                </Space>
-                            }
+                            title={<Space><FileExcelOutlined />Actualización desde Excel</Space>}
                             style={{ height: '100%' }}
                         >
                             <Space direction="vertical" style={{ width: '100%' }}>
@@ -489,7 +514,6 @@ const Catalog = () => {
                                     showIcon
                                     size="small"
                                 />
-
                                 <div style={{ textAlign: 'center' }}>
                                     <div style={{ marginBottom: 8 }}>
                                         <CalendarOutlined style={{ marginRight: 8 }} />
@@ -497,9 +521,7 @@ const Catalog = () => {
                                     </div>
                                     <Text type="secondary">{formatDate(lastUpdate)}</Text>
                                 </div>
-
                                 <Divider style={{ margin: '16px 0' }} />
-
                                 <Button
                                     type="primary"
                                     icon={<ReloadOutlined />}
@@ -516,12 +538,7 @@ const Catalog = () => {
 
                     <Col span={24} lg={12}>
                         <Card
-                            title={
-                                <Space>
-                                    <PlayCircleOutlined />
-                                    Scraper Manual
-                                </Space>
-                            }
+                            title={<Space><PlayCircleOutlined />Scraper Manual</Space>}
                             style={{ height: '100%' }}
                         >
                             <Space direction="vertical" style={{ width: '100%' }}>
@@ -532,15 +549,11 @@ const Catalog = () => {
                                     showIcon
                                     size="small"
                                 />
-
                                 <Form
                                     form={form}
                                     layout="vertical"
                                     onFinish={handleScrape}
-                                    initialValues={{
-                                        scraperType: 'categoryScraper',
-                                        categoryIds: 8
-                                    }}
+                                    initialValues={{ scraperType: 'categoryScraper', categoryIds: 8 }}
                                 >
                                     <Form.Item
                                         label="Tipo de Scraper"
@@ -551,20 +564,14 @@ const Catalog = () => {
                                             <Option value="categoryScraper">Scraper de Categorías</Option>
                                         </Select>
                                     </Form.Item>
-
                                     <Form.Item
                                         label="ID de Categoría"
                                         name="categoryIds"
                                         rules={[{ required: true, message: 'Ingrese el ID de la categoría' }]}
                                         help="ID numérico de la categoría a procesar"
                                     >
-                                        <InputNumber
-                                            style={{ width: '100%' }}
-                                            min={1}
-                                            placeholder="Ej: 8"
-                                        />
+                                        <InputNumber style={{ width: '100%' }} min={1} placeholder="Ej: 8" />
                                     </Form.Item>
-
                                     <Form.Item>
                                         <Button
                                             type="primary"

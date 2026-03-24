@@ -77,6 +77,29 @@ const StatusTag = ({ status }) => {
     return <Tag color={cfg.color} icon={cfg.icon}>{cfg.label}</Tag>;
 };
 
+/**
+ * Muestra el alcance del job.
+ * Para categoryScraper muestra los IDs de categoría o "Todas".
+ * Para otros tipos no muestra nada.
+ */
+const ScopeTag = ({ type, params }) => {
+    if (type !== 'categoryScraper') return null;
+    const ids = params?.categoryIds;
+    if (!ids || ids === 'all' || (Array.isArray(ids) && ids.length === 0)) {
+        return <Tag color="geekblue">Todas las categorías</Tag>;
+    }
+    const idList = Array.isArray(ids) ? ids : [ids];
+    return (
+        <Tooltip title={`IDs: ${idList.join(', ')}`}>
+            <Tag color="volcano">
+                {idList.length === 1
+                    ? `Cat. ${idList[0]}`
+                    : `${idList.length} categorías`}
+            </Tag>
+        </Tooltip>
+    );
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // TRIGGER MODAL
 // ─────────────────────────────────────────────────────────────────────────────
@@ -245,6 +268,18 @@ const JobDetailModal = ({ job, onClose }) => {
                 <Descriptions.Item label="Duración">{formatDuration(job.durationMs)}</Descriptions.Item>
                 <Descriptions.Item label="Espera en cola">{formatDuration(job.waitTimeMs)}</Descriptions.Item>
                 <Descriptions.Item label="Posición al encolar">{job.queuePosition ?? '—'}</Descriptions.Item>
+                {job.type === 'categoryScraper' && (
+                    <Descriptions.Item label="Categorías" span={2}>
+                        {(() => {
+                            const ids = job.params?.categoryIds;
+                            if (!ids || ids === 'all' || (Array.isArray(ids) && ids.length === 0)) {
+                                return <Tag color="geekblue">Todas las categorías</Tag>;
+                            }
+                            const idList = Array.isArray(ids) ? ids : [ids];
+                            return idList.map(id => <Tag key={id} color="volcano">{id}</Tag>);
+                        })()}
+                    </Descriptions.Item>
+                )}
             </Descriptions>
 
             {result && (
@@ -613,6 +648,11 @@ const ScraperHistoryTab = () => {
             render: (s) => <StatusTag status={s} />,
         },
         {
+            title: 'Alcance',
+            key: 'scope',
+            render: (_, r) => <ScopeTag type={r.type} params={r.params} />,
+        },
+        {
             title: 'Iniciado',
             dataIndex: 'startedAt',
             key: 'startedAt',
@@ -730,6 +770,7 @@ const ScraperHistoryTab = () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PriceCheckTab = () => {
+    const [triggering, setTriggering] = useState(false);
     const [latest, setLatest]         = useState(null);
     const [history, setHistory]       = useState([]);
     const [total, setTotal]           = useState(0);
@@ -764,6 +805,25 @@ const PriceCheckTab = () => {
         fetchLatest();
         fetchHistory(1);
     }, [fetchLatest, fetchHistory]);
+
+    const handleTrigger = async () => {
+        setTriggering(true);
+        try {
+            await scraperAPI.triggerPriceCheck();
+            message.success('Verificación de precios iniciada');
+            // Refresh latest after a short delay
+            setTimeout(fetchLatest, 2000);
+        } catch (err) {
+            const errMsg = err.response?.data?.error || 'Error al iniciar price check';
+            if (err.response?.status === 503) {
+                message.error(`Backend no configurado: ${errMsg}`);
+            } else {
+                message.error(errMsg);
+            }
+        } finally {
+            setTriggering(false);
+        }
+    };
 
     const columns = [
         {
@@ -818,6 +878,18 @@ const PriceCheckTab = () => {
 
     return (
         <>
+            {/* Trigger button */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+                <Button
+                    type="primary"
+                    icon={<PlayCircleOutlined />}
+                    loading={triggering}
+                    onClick={handleTrigger}
+                >
+                    Ejecutar verificación
+                </Button>
+            </div>
+
             {/* Último resultado */}
             {latest && (
                 <Alert
