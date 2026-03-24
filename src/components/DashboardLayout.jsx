@@ -7,6 +7,7 @@ import {
     FileTextOutlined,
     LogoutOutlined,
     UserOutlined,
+    RobotOutlined,        // ← nuevo
 } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -59,6 +60,15 @@ const DashboardLayout = ({ children }) => {
             label: 'Configuración',
             onClick: () => {
                 navigate('/config');
+                if (isMobile) setDrawerVisible(false);
+            },
+        },
+        {
+            key: '/scraper',
+            icon: <RobotOutlined />,
+            label: 'Scrapers',
+            onClick: () => {
+                navigate('/scraper');
                 if (isMobile) setDrawerVisible(false);
             },
         },
