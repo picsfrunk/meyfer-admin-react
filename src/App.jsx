@@ -9,6 +9,7 @@ import Login from './pages/Login';
 import Config from './pages/Config';
 import Catalog from './pages/Catalog';
 import Orders from './pages/Orders/Orders.jsx';
+import Products from './pages/Products/Products.jsx';
 import ScraperPage from './pages/ScraperPage';   // ← nuevo
 
 // Configuración de tema para Ant Design
@@ -58,6 +59,17 @@ function App() {
                                 <ProtectedRoute>
                                     <DashboardLayout>
                                         <Orders />
+                                    </DashboardLayout>
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        <Route
+                            path="/products"
+                            element={
+                                <ProtectedRoute>
+                                    <DashboardLayout>
+                                        <Products />
                                     </DashboardLayout>
                                 </ProtectedRoute>
                             }
