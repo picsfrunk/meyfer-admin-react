@@ -56,7 +56,7 @@ export const configAPI = {
 };
 
 export const productsAPI = {
-    getAll: () => api.get('/products/scraped'),
+    getAll: (params = {}) => api.get('/products/scraped', { params }),
     getById: (id) => api.get(`/products/scraped/${id}`),
     create: (formData) => api.post('/admin/products', formData, {
         headers: {

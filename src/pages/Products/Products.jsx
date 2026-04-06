@@ -29,63 +29,32 @@ const Products = () => {
     const loadProducts = async () => {
         setLoading(true);
         try {
-            const { data } = await productsAPI.getAll();
-            
-            // La API devuelve un objeto paginado con la propiedad 'products'
-            const productsArray = data.products || [];
-            
-            setProducts(Array.isArray(productsArray) ? productsArray : []);
+            const limit = 50;
+            const { data: firstPageData } = await productsAPI.getAll({ page: 1, limit });
+
+            const firstPageProducts = Array.isArray(firstPageData?.products) ? firstPageData.products : [];
+            const totalPages = Number(firstPageData?.totalPages) || 1;
+
+            if (totalPages <= 1) {
+                setProducts(firstPageProducts);
+                return;
+            }
+
+            const pageRequests = [];
+            for (let page = 2; page <= totalPages; page += 1) {
+                pageRequests.push(productsAPI.getAll({ page, limit }));
+            }
+
+            const pageResponses = await Promise.all(pageRequests);
+            const remainingProducts = pageResponses.flatMap(({ data }) =>
+                Array.isArray(data?.products) ? data.products : []
+            );
+
+            setProducts([...firstPageProducts, ...remainingProducts]);
         } catch (error) {
             console.error('Error loading products:', error);
-            // Fallback to mock data when API is not available
-            const mockData = [
-                {
-                    "_id": "69c2132c5c1c20f06a30391c",
-                    "product_id": "2426",
-                    "base_unit_name": "Un",
-                    "brand": "PRETUL",
-                    "category_id": 8,
-                    "category_name": "Quimicos",
-                    "display_name": "ADHESIVO PARA PVC 100 cc \"PRETUL\"",
-                    "final_price": 1993.2000000000003,
-                    "image_url": "http://localhost:3099/web/image/product.product/1556/image_1024/mock?unique=abc123",
-                    "list_price": 1812,
-                    "original_image_url": "http://localhost:3099/web/image/product.product/1556/image_1024/mock?unique=abc123",
-                    "product_type": "consu",
-                    "source_url": "http://rhcomercial.com.ar/shop/1706-asiento-inodoro-camilo-florencia-amarillo-1556"
-                },
-                {
-                    "_id": "69c2132c5c1c20f06a303937",
-                    "product_id": "2382",
-                    "base_unit_name": "Un",
-                    "brand": "GENOVA",
-                    "category_id": 3,
-                    "category_name": "Agua",
-                    "display_name": "ACOPLE COMP PROF C/TRABA MEC TEE 1/2\" \"GENOVA\"",
-                    "final_price": 2622.4,
-                    "image_url": "http://localhost:3099/web/image/product.product/1512/image_1024/mock?unique=abc123",
-                    "list_price": 2384,
-                    "original_image_url": "http://localhost:3099/web/image/product.product/1512/image_1024/mock?unique=abc123",
-                    "product_type": "consu",
-                    "source_url": "http://rhcomercial.com.ar/shop/1028-acople-compresion-rapido-1-1-4-duke-esp-1512"
-                },
-                {
-                    "_id": "69c213985c1c20f06a30393f",
-                    "product_id": "2387",
-                    "base_unit_name": "Un",
-                    "brand": "TOTAL",
-                    "category_id": 3,
-                    "category_name": "Agua",
-                    "display_name": "VÁLVULA ESFERA PVC 3/8\" \"TOTAL\"",
-                    "final_price": 3485.9,
-                    "image_url": "http://localhost:3099/web/image/product.product/1517/image_1024/mock?unique=abc123",
-                    "list_price": 3169,
-                    "original_image_url": "http://localhost:3099/web/image/product.product/1517/image_1024/mock?unique=abc123",
-                    "product_type": "consu",
-                    "source_url": "http://rhcomercial.com.ar/shop/0936-acople-compresion-rapido-prof-1-2-duke-1517"
-                }
-            ];
-            setProducts(mockData);
+            setProducts([]);
+            message.error('No se pudieron cargar los productos');
         } finally {
             setLoading(false);
         }
