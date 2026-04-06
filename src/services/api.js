@@ -74,7 +74,8 @@ export const productsAPI = {
             'Content-Type': 'multipart/form-data',
         },
     }),
-    getCategories: () => api.get('/products/brands'),
+    getCategories: () => api.get('/categories'),
+    getBrands: () => api.get('/products/brands'),
 };
 
 export const ordersAPI = {

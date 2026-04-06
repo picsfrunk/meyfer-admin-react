@@ -192,7 +192,6 @@ const ProductsTable = ({ products, loading, onEdit, onUpdatePrice, onDelete }) =
 
     return isMobile ? (
         <div>
-            <h3>=== VISTA MÓVIL ===</h3>
             <p>Productos a mostrar: {products?.length || 0}</p>
             {products && products.length > 0 ? (
                 products.map((product) => (
@@ -206,7 +205,6 @@ const ProductsTable = ({ products, loading, onEdit, onUpdatePrice, onDelete }) =
         </div>
     ) : (
         <div>
-            <h3>=== VISTA DESKTOP ===</h3>
             <p>Productos a mostrar: {products?.length || 0}</p>
             <Table
                 columns={columns}
