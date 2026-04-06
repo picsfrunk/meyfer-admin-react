@@ -70,13 +70,6 @@ const ProductsTable = ({ products, loading, onEdit, onUpdatePrice, onDelete }) =
             sorter: (a, b) => a.list_price - b.list_price,
         },
         {
-            title: 'Tipo',
-            dataIndex: 'product_type',
-            key: 'product_type',
-            width: 100,
-            render: (product_type) => <Tag>{product_type}</Tag>,
-        },
-        {
             title: 'Manual',
             dataIndex: 'isManual',
             key: 'isManual',
@@ -145,7 +138,6 @@ const ProductsTable = ({ products, loading, onEdit, onUpdatePrice, onDelete }) =
 
             <div style={{ marginBottom: 8, display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 {product.category_name && <Tag>{product.category_name}</Tag>}
-                <Tag>{product.product_type}</Tag>
                 <Tag color={product.isManual ? 'blue' : 'green'}>
                     {product.isManual ? 'Manual' : 'Auto'}
                 </Tag>

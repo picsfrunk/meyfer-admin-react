@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Button, Space, Typography, message } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { ordersAPI } from '../../services/api';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 import OrdersFilter from './OrdersFilter';
 import OrdersTable from './OrdersTable';
@@ -58,10 +59,16 @@ const Orders = () => {
                 ? `?status=${encodeURIComponent(statusesToFetch.join(','))}`
                 : '';
             const { data } = await ordersAPI.getAll(`/orders${query}`);
-            setOrders(Array.isArray(data) ? data : []);
+            if (!Array.isArray(data)) {
+                setOrders([]);
+                message.error('Formato inválido al cargar los pedidos');
+                return;
+            }
+
+            setOrders(data);
         } catch (error) {
             console.error('Error loading orders:', error);
-            message.error('Error al cargar los pedidos');
+            message.error(getApiErrorMessage(error, 'Error al cargar los pedidos'));
         } finally {
             setLoading(false);
         }
@@ -94,7 +101,7 @@ const Orders = () => {
             message.success('Estado actualizado correctamente');
             await loadOrders(selectedStatuses, showDeleted, allSelected);
         } catch (error) {
-            message.error('Error al actualizar el estado');
+            message.error(getApiErrorMessage(error, 'Error al actualizar el estado'));
             console.error(error);
         }
     };
@@ -104,7 +111,7 @@ const Orders = () => {
             await ordersAPI.resendOrderEmail(orderId);
             message.success('Correo reenviado correctamente');
         } catch (error) {
-            message.error(`Error al reenviar correo de pedido ${orderId}`);
+            message.error(getApiErrorMessage(error, `Error al reenviar correo de pedido ${orderId}`));
             console.error(error);
         }
     };
@@ -115,7 +122,7 @@ const Orders = () => {
             message.success('Pedido eliminado correctamente');
             await loadOrders(selectedStatuses, showDeleted, allSelected);
         } catch (error) {
-            message.error('Error al eliminar el pedido');
+            message.error(getApiErrorMessage(error, 'Error al eliminar el pedido'));
             console.error(error);
         }
     };

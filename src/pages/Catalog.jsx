@@ -29,6 +29,7 @@ import {
     ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import { productsAPI, configAPI } from '../services/api';
+import { getApiErrorMessage } from '../utils/apiError';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -56,9 +57,16 @@ const Catalog = () => {
     const loadLastUpdate = async () => {
         try {
             const response = await configAPI.getLastUpdate();
+            if (response?.data?.lastUpdate === undefined) {
+                setLastUpdate(null);
+                message.error('Formato inválido al cargar la fecha de actualización');
+                return;
+            }
+
             setLastUpdate(response.data.lastUpdate);
         } catch (error) {
             console.error('Error loading last update:', error);
+            message.error(getApiErrorMessage(error, 'Error al cargar la fecha de actualización'));
         }
     };
 
@@ -66,10 +74,22 @@ const Catalog = () => {
         setCategoriesLoading(true);
         try {
             const response = await productsAPI.getCategories();
-            setCategories(Array.isArray(response.data.categories) ? response.data.categories : []);
-            setTotalProducts(response.data.totalProducts);
+            const categoriesData = response?.data?.categories;
+            const totalProductsData = response?.data?.totalProducts;
+
+            if (!Array.isArray(categoriesData) || typeof totalProductsData !== 'number') {
+                setCategories([]);
+                setTotalProducts(0);
+                message.error('Formato inválido al cargar categorías');
+                return;
+            }
+
+            setCategories(categoriesData);
+            setTotalProducts(totalProductsData);
         } catch (error) {
-            message.error('Error al cargar las categorías');
+            message.error(getApiErrorMessage(error, 'Error al cargar las categorías'));
+            setCategories([]);
+            setTotalProducts(0);
         }
         setCategoriesLoading(false);
     };
@@ -109,7 +129,7 @@ const Catalog = () => {
                     });
                     message.success(`Scraper completo iniciado — Job ID: ${response.data.result?.jobId ?? '—'}`);
                 } catch (error) {
-                    message.error('Error al iniciar el scraper completo');
+                    message.error(getApiErrorMessage(error, 'Error al iniciar el scraper completo'));
                 } finally {
                     setLoading(false);
                 }
@@ -183,7 +203,7 @@ const Catalog = () => {
                     setSelectedCategories([]);
                     setSelectAll(false);
                 } catch (error) {
-                    message.error('Error al iniciar el scraper');
+                    message.error(getApiErrorMessage(error, 'Error al iniciar el scraper'));
                 } finally {
                     setLoading(false);
                 }
@@ -213,7 +233,7 @@ const Catalog = () => {
                     message.success(`Scraper iniciado — Job ID: ${response.data.result?.jobId ?? '—'}`);
                     form.resetFields();
                 } catch (error) {
-                    message.error('Error al iniciar el scraper');
+                    message.error(getApiErrorMessage(error, 'Error al iniciar el scraper'));
                 } finally {
                     setLoading(false);
                 }
@@ -230,7 +250,7 @@ const Catalog = () => {
             message.success(`Catálogo actualizado: ${response.data.updatedCount} productos`);
             await Promise.all([loadLastUpdate(), loadCategories()]);
         } catch (error) {
-            message.error('Error al actualizar el catálogo');
+            message.error(getApiErrorMessage(error, 'Error al actualizar el catálogo'));
         }
         setUpdateLoading(false);
     };

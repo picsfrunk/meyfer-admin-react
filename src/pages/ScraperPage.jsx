@@ -22,6 +22,7 @@ import {
     UnorderedListOutlined,
 } from '@ant-design/icons';
 import { scraperAPI } from '../services/scraperAPI';
+import { getApiErrorMessage } from '../utils/apiError';
 
 const { Title, Text } = Typography;
 
@@ -120,7 +121,7 @@ const TriggerModal = ({ open, onClose, onSuccess }) => {
             onSuccess();
             onClose();
         } catch (err) {
-            message.error(err.response?.data?.error || 'Error al disparar');
+            message.error(getApiErrorMessage(err, 'Error al disparar'));
         } finally {
             setLoading(null);
         }
@@ -134,7 +135,7 @@ const TriggerModal = ({ open, onClose, onSuccess }) => {
             onSuccess();
             onClose();
         } catch (err) {
-            message.error(err.response?.data?.error || 'Error al analizar');
+            message.error(getApiErrorMessage(err, 'Error al analizar'));
         } finally {
             setLoading(null);
         }
@@ -152,7 +153,7 @@ const TriggerModal = ({ open, onClose, onSuccess }) => {
             if (err.response?.status === 503) {
                 message.error(`Backend no configurado: ${errMsg}`);
             } else {
-                message.error(errMsg);
+                message.error(getApiErrorMessage(err, errMsg));
             }
         } finally {
             setLoading(null);
@@ -336,7 +337,7 @@ const PriceCheckDetailModal = ({ id, onClose }) => {
         setLoading(true);
         scraperAPI.getPriceCheckDetail(id)
             .then(res => setData(res.data))
-            .catch(() => message.error('Error al cargar el detalle'))
+            .catch((error) => message.error(getApiErrorMessage(error, 'Error al cargar el detalle')))
             .finally(() => setLoading(false));
     }, [id]);
 
@@ -620,8 +621,8 @@ const ScraperHistoryTab = () => {
             const res = await scraperAPI.getHistory(params);
             setJobs(res.data?.jobs ?? []);
             setTotal(res.data?.total ?? 0);
-        } catch {
-            message.error('Error al cargar historial');
+        } catch (error) {
+            message.error(getApiErrorMessage(error, 'Error al cargar historial'));
         } finally {
             setLoading(false);
         }
@@ -784,7 +785,9 @@ const PriceCheckTab = () => {
             const res = await scraperAPI.getPriceCheckLatest();
             setLatest(res.data);
         } catch (err) {
-            if (err.response?.status !== 404) message.error('Error al cargar último price check');
+            if (err.response?.status !== 404) {
+                message.error(getApiErrorMessage(err, 'Error al cargar ultimo price check'));
+            }
         }
     }, []);
 
@@ -794,8 +797,8 @@ const PriceCheckTab = () => {
             const res = await scraperAPI.getPriceCheckHistory({ page: p, limit: PAGE_SIZE });
             setHistory(res.data.results ?? []);
             setTotal(res.data.total ?? 0);
-        } catch {
-            message.error('Error al cargar historial');
+        } catch (error) {
+            message.error(getApiErrorMessage(error, 'Error al cargar historial'));
         } finally {
             setLoadHist(false);
         }
@@ -818,7 +821,7 @@ const PriceCheckTab = () => {
             if (err.response?.status === 503) {
                 message.error(`Backend no configurado: ${errMsg}`);
             } else {
-                message.error(errMsg);
+                message.error(getApiErrorMessage(err, errMsg));
             }
         } finally {
             setTriggering(false);
@@ -967,8 +970,8 @@ const ScraperPage = () => {
             ]);
             setStatusData(statusRes.data);
             setStats(statsRes.data);
-        } catch {
-            message.error('Error al cargar estado de la cola');
+        } catch (error) {
+            message.error(getApiErrorMessage(error, 'Error al cargar estado de la cola'));
         } finally {
             setLoading(false);
             setRefreshing(false);

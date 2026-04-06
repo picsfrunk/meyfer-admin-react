@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Button, Space, Typography, message } from 'antd';
 import { ReloadOutlined, PlusOutlined } from '@ant-design/icons';
 import { productsAPI } from '../../services/api';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 import ProductsFilter from './ProductsFilter';
 import ProductsTable from './ProductsTable';
@@ -14,6 +15,7 @@ const { Title } = Typography;
 const Products = () => {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [maxPrice, setMaxPrice] = useState(100000);
 
     // Modales
     const [editModalVisible, setEditModalVisible] = useState(false);
@@ -26,6 +28,18 @@ const Products = () => {
     const [priceRange, setPriceRange] = useState([0, 100000]);
     const [searchText, setSearchText] = useState('');
 
+    const getMaxPriceFromProducts = (productsList) => {
+        const numericPrices = productsList
+            .map((product) => Number(product?.final_price ?? 0))
+            .filter((value) => Number.isFinite(value) && value >= 0);
+
+        if (numericPrices.length === 0) {
+            return 100000;
+        }
+
+        return Math.max(100000, Math.ceil(Math.max(...numericPrices)));
+    };
+
     const loadProducts = async () => {
         setLoading(true);
         try {
@@ -37,6 +51,9 @@ const Products = () => {
 
             if (totalPages <= 1) {
                 setProducts(firstPageProducts);
+                const detectedMaxPrice = getMaxPriceFromProducts(firstPageProducts);
+                setMaxPrice(detectedMaxPrice);
+                setPriceRange([0, detectedMaxPrice]);
                 return;
             }
 
@@ -50,11 +67,18 @@ const Products = () => {
                 Array.isArray(data?.products) ? data.products : []
             );
 
-            setProducts([...firstPageProducts, ...remainingProducts]);
+            const allProducts = [...firstPageProducts, ...remainingProducts];
+            setProducts(allProducts);
+
+            const detectedMaxPrice = getMaxPriceFromProducts(allProducts);
+            setMaxPrice(detectedMaxPrice);
+            setPriceRange([0, detectedMaxPrice]);
         } catch (error) {
             console.error('Error loading products:', error);
             setProducts([]);
-            message.error('No se pudieron cargar los productos');
+            setMaxPrice(100000);
+            setPriceRange([0, 100000]);
+            message.error(getApiErrorMessage(error, 'No se pudieron cargar los productos'));
         } finally {
             setLoading(false);
         }
@@ -100,7 +124,7 @@ const Products = () => {
             setProducts(products.filter((p) => p.product_id !== productId));
             message.success('Producto eliminado correctamente');
         } catch (error) {
-            message.error('Error al eliminar el producto');
+            message.error(getApiErrorMessage(error, 'Error al eliminar el producto'));
             console.error(error);
         }
     };
@@ -148,6 +172,7 @@ const Products = () => {
                     onCategoryChange={setSelectedCategory}
                     onPriceRangeChange={setPriceRange}
                     onSearchChange={setSearchText}
+                    maxPrice={maxPrice}
                 />
             </Card>
 

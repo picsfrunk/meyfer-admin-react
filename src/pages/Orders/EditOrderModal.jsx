@@ -1,6 +1,7 @@
 import React from 'react';
 import { Modal, Form, Input, Select, Button, Space, message } from 'antd';
 import { ordersAPI } from '../../services/api';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -42,8 +43,8 @@ const EditOrderModal = ({ visible, order, onClose, onUpdated }) => {
             message.success('Pedido actualizado correctamente');
             onClose();
             onUpdated();
-        } catch {
-            message.error('Error al actualizar el pedido');
+        } catch (error) {
+            message.error(getApiErrorMessage(error, 'Error al actualizar el pedido'));
         }
     };
 

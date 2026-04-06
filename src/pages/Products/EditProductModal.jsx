@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Modal, Form, Input, InputNumber, Select, Button, Space, Switch, Upload, message } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import { productsAPI } from '../../services/api';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 const EditProductModal = ({ visible, product, onSave, onCancel }) => {
     const [form] = Form.useForm();
@@ -23,7 +24,6 @@ const EditProductModal = ({ visible, product, onSave, onCancel }) => {
                 category_id: product.category_id,
                 category_name: product.category_name,
                 brand: product.brand,
-                product_type: product.product_type,
                 list_price: product.list_price,
                 image_url: product.image_url,
             });
@@ -37,16 +37,23 @@ const EditProductModal = ({ visible, product, onSave, onCancel }) => {
     const loadCategories = async () => {
         try {
             const response = await productsAPI.getCategories();
-            setCategories(response.data.map(brand => ({ label: brand, value: brand })));
+            const categoriesData = response?.data?.categories;
+            if (!Array.isArray(categoriesData)) {
+                setCategories([]);
+                message.error('Formato inválido al cargar categorías');
+                return;
+            }
+
+            setCategories(
+                categoriesData.map((category) => ({
+                    label: category.category_name,
+                    value: category.category_name,
+                }))
+            );
         } catch (error) {
             console.error('Error loading categories:', error);
-            // Fallback to hardcoded categories
-            setCategories([
-                { label: 'Electrónica', value: 'Electrónica' },
-                { label: 'Ropa', value: 'Ropa' },
-                { label: 'Accesorios', value: 'Accesorios' },
-                { label: 'Hogar', value: 'Hogar' },
-            ]);
+            setCategories([]);
+            message.error(getApiErrorMessage(error, 'Error al cargar categorías'));
         }
     };
 
@@ -63,7 +70,6 @@ const EditProductModal = ({ visible, product, onSave, onCancel }) => {
             if (values.category_id !== undefined) formData.append('category_id', values.category_id.toString());
             if (values.category_name !== undefined) formData.append('category_name', values.category_name);
             if (values.brand !== undefined) formData.append('brand', values.brand);
-            if (values.product_type !== undefined) formData.append('product_type', values.product_type);
             if (values.list_price !== undefined) formData.append('list_price', values.list_price.toString());
             if (values.image_url !== undefined) formData.append('image_url', values.image_url);
 
@@ -77,7 +83,7 @@ const EditProductModal = ({ visible, product, onSave, onCancel }) => {
             onSave();
         } catch (error) {
             console.error('Error updating product:', error);
-            message.error('Error al actualizar el producto');
+            message.error(getApiErrorMessage(error, 'Error al actualizar el producto'));
         }
     };
 
@@ -179,17 +185,6 @@ const EditProductModal = ({ visible, product, onSave, onCancel }) => {
                     name="brand"
                 >
                     <Input placeholder="Marca del producto" />
-                </Form.Item>
-
-                <Form.Item
-                    label="Tipo de Producto"
-                    name="product_type"
-                >
-                    <Select placeholder="Selecciona tipo">
-                        <Select.Option value="simple">Simple</Select.Option>
-                        <Select.Option value="variable">Variable</Select.Option>
-                        <Select.Option value="grouped">Agrupado</Select.Option>
-                    </Select>
                 </Form.Item>
 
                 <Form.Item

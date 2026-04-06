@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Modal, Form, InputNumber, Button, Space, Typography, Divider, message } from 'antd';
 import { productsAPI } from '../../services/api';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 const { Text } = Typography;
 
@@ -31,7 +32,7 @@ const PriceUpdateModal = ({ visible, product, onSave, onCancel }) => {
             }
         } catch (error) {
             console.error('Error updating price:', error);
-            message.error('Error al actualizar el precio');
+            message.error(getApiErrorMessage(error, 'Error al actualizar el precio'));
         }
     };
 

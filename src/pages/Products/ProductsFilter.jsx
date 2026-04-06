@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Input, Select, Slider, Space, Card, Button } from 'antd';
+import { Input, Select, Slider, Space, Card, Button, message } from 'antd';
 import { SearchOutlined, ClearOutlined } from '@ant-design/icons';
 import { productsAPI } from '../../services/api';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 const ProductsFilter = ({
     onCategoryChange,
     onPriceRangeChange,
     onSearchChange,
+    maxPrice = 100000,
 }) => {
     const [categories, setCategories] = useState([]);
     const [brands, setBrands] = useState([]);
@@ -15,12 +17,16 @@ const ProductsFilter = ({
     // Estados locales para filtros
     const [selectedCategory, setSelectedCategory] = useState('');
     const [selectedBrand, setSelectedBrand] = useState('');
-    const [priceRange, setPriceRange] = useState([0, 100000]);
+    const [priceRange, setPriceRange] = useState([0, maxPrice]);
     const [searchText, setSearchText] = useState('');
 
     useEffect(() => {
         loadFilterData();
     }, []);
+
+    useEffect(() => {
+        setPriceRange([0, maxPrice]);
+    }, [maxPrice]);
 
     const loadFilterData = async () => {
         setLoading(true);
@@ -33,12 +39,17 @@ const ProductsFilter = ({
             const categoriesData = categoriesResponse?.data?.categories;
             const brandsData = brandsResponse?.data?.data;
 
-            setCategories(Array.isArray(categoriesData) ? categoriesData : []);
-            setBrands(Array.isArray(brandsData) ? brandsData : []);
+            if (!Array.isArray(categoriesData) || !Array.isArray(brandsData)) {
+                throw new Error('Unexpected filter payload format');
+            }
+
+            setCategories(categoriesData);
+            setBrands(brandsData);
         } catch (error) {
             console.error('Error loading filter data:', error);
             setCategories([]);
             setBrands([]);
+            message.error(getApiErrorMessage(error, 'No se pudieron cargar categorías y marcas'));
         } finally {
             setLoading(false);
         }
@@ -83,11 +94,11 @@ const ProductsFilter = ({
     const handleClearFilters = () => {
         setSelectedCategory('');
         setSelectedBrand('');
-        setPriceRange([0, 100000]);
+        setPriceRange([0, maxPrice]);
         setSearchText('');
 
         onCategoryChange('');
-        onPriceRangeChange([0, 100000]);
+        onPriceRangeChange([0, maxPrice]);
         onSearchChange('');
     };
 
@@ -97,7 +108,7 @@ const ProductsFilter = ({
                 {/* Búsqueda por texto */}
                 <div>
                     <Input
-                        placeholder="Buscar por nombre o SKU..."
+                        placeholder="Buscar por nombre o Código..."
                         prefix={<SearchOutlined />}
                         value={searchText}
                         onChange={(e) => handleSearchChange(e.target.value)}
@@ -146,13 +157,13 @@ const ProductsFilter = ({
                     <Slider
                         range
                         min={0}
-                        max={100000}
+                        max={maxPrice}
                         step={100}
                         value={priceRange}
                         onChange={handlePriceRangeChange}
                         marks={{
                             0: '$0',
-                            100000: '$100k',
+                            [maxPrice]: `$${maxPrice.toLocaleString('es-AR')}`,
                         }}
                     />
                 </div>
