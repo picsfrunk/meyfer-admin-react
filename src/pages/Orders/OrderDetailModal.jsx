@@ -183,7 +183,7 @@ const OrderDetailModal = ({
 
                 <div style={{ marginTop: 16, borderTop: '1px solid #f0f0f0', paddingTop: 16 }}>
                     <Button
-                        type="primary"
+                        type="default"
                         icon={<ReloadOutlined />}
                         onClick={handleRefreshValues}
                         loading={valuesUpdating}

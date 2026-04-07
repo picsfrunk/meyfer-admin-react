@@ -94,7 +94,7 @@ export const ordersAPI = {
             () => api.post(`/orders/${id}/refresh-values`),
         ];
 
-        let lastError;
+        let lastError = new Error('No se pudo actualizar los valores del pedido');
         for (const request of attempts) {
             try {
                 return await request();
