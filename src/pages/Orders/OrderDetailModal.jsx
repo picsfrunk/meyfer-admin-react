@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, Descriptions, Tag, Table, Typography, Button, Select } from 'antd';
-import { MailOutlined } from '@ant-design/icons';
+import { MailOutlined, ReloadOutlined } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
 
@@ -20,9 +20,11 @@ const OrderDetailModal = ({
     onClose,
     onQuickStatusUpdate,
     onResendEmail,
+    onRefreshOrderValues,
 }) => {
     const [selectedStatus, setSelectedStatus] = React.useState('');
     const [statusUpdating, setStatusUpdating] = React.useState(false);
+    const [valuesUpdating, setValuesUpdating] = React.useState(false);
 
     React.useEffect(() => {
         setSelectedStatus(order?.status || defaultStatus || '');
@@ -75,6 +77,16 @@ const OrderDetailModal = ({
             await onQuickStatusUpdate(order.orderId, selectedStatus);
         } finally {
             setStatusUpdating(false);
+        }
+    };
+
+    const handleRefreshValues = async () => {
+        if (!onRefreshOrderValues) return;
+        setValuesUpdating(true);
+        try {
+            await onRefreshOrderValues(order.orderId);
+        } finally {
+            setValuesUpdating(false);
         }
     };
 
@@ -170,6 +182,15 @@ const OrderDetailModal = ({
                 </div>
 
                 <div style={{ marginTop: 16, borderTop: '1px solid #f0f0f0', paddingTop: 16 }}>
+                    <Button
+                        type="primary"
+                        icon={<ReloadOutlined />}
+                        onClick={handleRefreshValues}
+                        loading={valuesUpdating}
+                        style={{ marginRight: 8 }}
+                    >
+                        Actualizar Valores
+                    </Button>
                     <Button
                         type="default"
                         icon={<MailOutlined />}
