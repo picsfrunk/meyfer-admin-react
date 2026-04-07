@@ -80,6 +80,7 @@ export const productsAPI = {
 
 export const ordersAPI = {
     getAll: (url = '/orders') => api.get(url),
+    getStatuses: () => api.get('/orders/statuses'),
     getById: (id) => api.get(`/orders/${id}`),
     update: (id, data) => api.put(`/orders/${id}`, data),
     delete: (id) => api.delete(`/orders/${id}`),

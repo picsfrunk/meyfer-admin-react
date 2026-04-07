@@ -151,21 +151,37 @@ const ProductsFilter = ({
 
                 {/* Rango de precios */}
                 <div>
-                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
+                    <label
+                        style={{
+                            display: 'block',
+                            marginBottom: '8px',
+                            fontWeight: 500,
+                            whiteSpace: 'normal',
+                            overflowWrap: 'anywhere',
+                        }}
+                    >
                         Rango de precio: ${priceRange[0].toLocaleString('es-AR')} - ${priceRange[1].toLocaleString('es-AR')}
                     </label>
-                    <Slider
-                        range
-                        min={0}
-                        max={maxPrice}
-                        step={100}
-                        value={priceRange}
-                        onChange={handlePriceRangeChange}
-                        marks={{
-                            0: '$0',
-                            [maxPrice]: `$${maxPrice.toLocaleString('es-AR')}`,
-                        }}
-                    />
+                    <div style={{ paddingInline: 8 }}>
+                        <Slider
+                            range
+                            min={0}
+                            max={maxPrice}
+                            step={100}
+                            value={priceRange}
+                            onChange={handlePriceRangeChange}
+                            marks={{
+                                0: {
+                                    style: { transform: 'translateX(0%)' },
+                                    label: '$0',
+                                },
+                                [maxPrice]: {
+                                    style: { transform: 'translateX(-100%)' },
+                                    label: `$${maxPrice.toLocaleString('es-AR')}`,
+                                },
+                            }}
+                        />
+                    </div>
                 </div>
 
                 {/* Botón para limpiar filtros */}
