@@ -206,6 +206,22 @@ const OrderDetailModal = ({
                 extraCharge: Number(extraCharge ?? 0),
             });
             setEditMode(false);
+
+            if (onResendEmail) {
+                Modal.confirm({
+                    title: '¿Deseas reenviar el email de confirmación?',
+                    content: 'Los cambios del pedido se guardaron correctamente.',
+                    okText: 'Sí, reenviar',
+                    cancelText: 'No',
+                    onOk: async () => {
+                        try {
+                            await onResendEmail(order.orderId);
+                        } catch (error) {
+                            message.error(getApiErrorMessage(error, 'No se pudo reenviar el email de confirmación'));
+                        }
+                    },
+                });
+            }
         } finally {
             setValuesUpdating(false);
         }
