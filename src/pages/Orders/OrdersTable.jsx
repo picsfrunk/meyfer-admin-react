@@ -100,8 +100,9 @@ const OrdersTable = ({ orders, loading, statusColors, statusLabels = {}, onShowD
     const MobileOrderCard = ({ order }) => (
         <Card
             size="small"
-            style={{ marginBottom: 12 }}
+            style={{ marginBottom: 12, cursor: 'pointer' }}
             styles={{ body: { padding: '12px' } }}
+            onClick={() => onShowDetail(order)}
         >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                 <div style={{ flex: 1 }}>
@@ -178,6 +179,10 @@ const OrdersTable = ({ orders, loading, statusColors, statusLabels = {}, onShowD
             rowKey="orderId"
             loading={loading}
             pagination={{ pageSize: 10 }}
+            onRow={(record) => ({
+                onClick: () => onShowDetail(record),
+                style: { cursor: 'pointer' },
+            })}
         />
     );
 };
