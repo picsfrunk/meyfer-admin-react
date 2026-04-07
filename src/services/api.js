@@ -83,7 +83,31 @@ export const ordersAPI = {
     getStatuses: () => api.get('/orders/statuses'),
     getById: (id) => api.get(`/orders/${id}`),
     update: (id, data) => api.put(`/orders/${id}`, data),
+    updatePricing: (id, data) => api.patch(`/orders/${id}/pricing`, data),
     delete: (id) => api.delete(`/orders/${id}`),
     updateStatus: (id, status) => api.patch(`/orders/${id}/status`, { status }),
     resendOrderEmail: (id) => api.post(`/orders/${id}/resend-emails`),
+    refreshOrderValues: async (id) => {
+        const attempts = [
+            () => api.patch(`/orders/${id}/update-values`),
+            () => api.post(`/orders/${id}/update-values`),
+            () => api.patch(`/orders/${id}/refresh-values`),
+            () => api.post(`/orders/${id}/refresh-values`),
+        ];
+
+        let lastError = new Error('No se pudo actualizar los valores del pedido');
+        for (const request of attempts) {
+            try {
+                return await request();
+            } catch (error) {
+                lastError = error;
+                const statusCode = error?.response?.status;
+                if (statusCode !== 404 && statusCode !== 405) {
+                    throw error;
+                }
+            }
+        }
+
+        throw lastError;
+    },
 };

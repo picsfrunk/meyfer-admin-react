@@ -8,6 +8,7 @@ import {
     buildStatusDefinitions,
     buildStatusLabels,
     isDeletedStatus,
+    normalizeOrderFromApi,
     normalizeOrdersFromApi,
     normalizeStatusKey,
 } from '../../models/orderModel';
@@ -178,6 +179,23 @@ const Orders = () => {
         }
     };
 
+    const handlePricingUpdate = async (orderId, payload) => {
+        try {
+            const { data } = await ordersAPI.updatePricing(orderId, payload);
+            const updatedOrderPayload = data?.order || data?.updatedOrder || data;
+            if (updatedOrderPayload && !Array.isArray(updatedOrderPayload) && typeof updatedOrderPayload === 'object') {
+                setSelectedOrder(normalizeOrderFromApi(updatedOrderPayload));
+            }
+            message.success('Valores del pedido actualizados correctamente');
+            await loadOrders(selectedStatuses, showDeleted, allSelected);
+            return updatedOrderPayload;
+        } catch (error) {
+            message.error(getApiErrorMessage(error, 'Error al actualizar valores del pedido'));
+            console.error(error);
+            throw error;
+        }
+    };
+
     const handleDelete = async (orderToDelete) => {
         const backendId = orderToDelete?._id;
         const publicOrderId = orderToDelete?.orderId;
@@ -277,6 +295,7 @@ const Orders = () => {
                 onClose={() => setDetailModalVisible(false)}
                 onQuickStatusUpdate={handleStatusUpdate}
                 onResendEmail={handleResendEmail}
+                onPricingUpdate={handlePricingUpdate}
             />
         </div>
     );
