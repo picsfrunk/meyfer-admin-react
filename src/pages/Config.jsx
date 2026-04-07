@@ -26,6 +26,7 @@ import {
     UserOutlined
 } from '@ant-design/icons';
 import { configAPI } from '../services/api';
+import { getApiErrorMessage } from '../utils/apiError';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -43,10 +44,15 @@ const Config = () => {
         try {
             const profitRes = await configAPI.getProfit();
             const marginValue = profitRes.data.margin;
+            if (typeof marginValue !== 'number') {
+                message.error('Formato inválido al cargar el margen de ganancia');
+                setMargin(null);
+                return;
+            }
             setMargin(marginValue);
             form.setFieldsValue({ margin: marginValue });
         } catch (error) {
-            message.error('Error al cargar la configuración');
+            message.error(getApiErrorMessage(error, 'Error al cargar la configuración'));
             console.error('Error loading config:', error);
         }
         setLoading(false);
@@ -56,9 +62,15 @@ const Config = () => {
         setEmailsLoading(true);
         try {
             const response = await configAPI.getAdminEmails();
-            setAdminEmails(response.data.emails || []);
+            const emails = response?.data?.emails;
+            if (!Array.isArray(emails)) {
+                message.error('Formato inválido al cargar emails de administradores');
+                setAdminEmails([]);
+                return;
+            }
+            setAdminEmails(emails);
         } catch (error) {
-            message.error('Error al cargar los emails de administradores');
+            message.error(getApiErrorMessage(error, 'Error al cargar los emails de administradores'));
             console.error('Error loading admin emails:', error);
         }
         setEmailsLoading(false);
@@ -71,7 +83,7 @@ const Config = () => {
             setMargin(values.margin);
             message.success('Margen de ganancia actualizado correctamente');
         } catch (error) {
-            message.error('Error al actualizar el margen de ganancia');
+            message.error(getApiErrorMessage(error, 'Error al actualizar el margen de ganancia'));
             console.error('Error updating margin:', error);
         }
         setLoading(false);
@@ -84,7 +96,7 @@ const Config = () => {
             emailForm.resetFields();
             await loadAdminEmails();
         } catch (error) {
-            message.error('Error al agregar el email');
+            message.error(getApiErrorMessage(error, 'Error al agregar el email'));
             console.error('Error adding email:', error);
         }
     };
@@ -95,7 +107,7 @@ const Config = () => {
             message.success('Email desactivado correctamente');
             await loadAdminEmails();
         } catch (error) {
-            message.error('Error al desactivar el email');
+            message.error(getApiErrorMessage(error, 'Error al desactivar el email'));
             console.error('Error deactivating email:', error);
         }
     };

@@ -1,28 +1,16 @@
 import React from 'react';
 import { Modal, Form, Input, Select, Button, Space, message } from 'antd';
 import { ordersAPI } from '../../services/api';
+import { getApiErrorMessage } from '../../utils/apiError';
 
-const { TextArea } = Input;
-const { Option } = Select;
-
-const EditOrderModal = ({ visible, order, onClose, onUpdated }) => {
+const EditOrderModal = ({ visible, order, orderStatuses = [], onClose, onUpdated }) => {
     const [form] = Form.useForm();
 
     React.useEffect(() => {
         if (order) {
-            const buildAddress = (d) =>
-                !d
-                    ? ''
-                    : [ `${d.calle} ${d.numero}`,
-                        d.piso && `Piso ${d.piso}`,
-                        d.timbre && `Timbre ${d.timbre}`,
-                        d.localidad,
-                        d.partido,
-                    ].filter(Boolean).join(', ');
             form.setFieldsValue({
-                customerName: order.customerInfo.cliente,
+                customerName: order.customerInfo.name,
                 customerEmail: order.customerInfo.email,
-                address: buildAddress(order.customerInfo.direccion),
                 status: order.status,
                 total: order.total,
             });
@@ -33,7 +21,6 @@ const EditOrderModal = ({ visible, order, onClose, onUpdated }) => {
         try {
             const updatedOrder = {
                 customerInfo: { name: values.customerName, email: values.customerEmail },
-                address: values.address,
                 status: values.status,
                 total: values.total,
                 cartItems: order.cartItems,
@@ -42,8 +29,8 @@ const EditOrderModal = ({ visible, order, onClose, onUpdated }) => {
             message.success('Pedido actualizado correctamente');
             onClose();
             onUpdated();
-        } catch {
-            message.error('Error al actualizar el pedido');
+        } catch (error) {
+            message.error(getApiErrorMessage(error, 'Error al actualizar el pedido'));
         }
     };
 
@@ -60,17 +47,14 @@ const EditOrderModal = ({ visible, order, onClose, onUpdated }) => {
                 >
                     <Input />
                 </Form.Item>
-                <Form.Item label="Dirección" name="address" rules={[{ required: true }]}>
-                    <TextArea rows={3} />
-                </Form.Item>
                 <Form.Item label="Estado" name="status" rules={[{ required: true }]}>
-                    <Select>
-                        <Option value="pending">Pendiente</Option>
-                        <Option value="procesado">Procesado</Option>
-                        <Option value="enviado">Enviado</Option>
-                        <Option value="entregado">Entregado</Option>
-                        <Option value="cancelado">Cancelado</Option>
-                    </Select>
+                    <Select
+                        placeholder="Seleccionar estado"
+                        options={orderStatuses.map((status) => ({
+                            value: status.key,
+                            label: status.label,
+                        }))}
+                    />
                 </Form.Item>
                 <Form.Item label="Total" name="total" rules={[{ required: true }]}>
                     <Input type="number" addonBefore="$" />

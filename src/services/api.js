@@ -56,13 +56,31 @@ export const configAPI = {
 };
 
 export const productsAPI = {
-    updateParsed: () => api.post('/config/parsed'),
-    scrape: (data) => api.post('/config/scrape', data),
+    getAll: (params = {}) => api.get('/products/scraped', { params }),
+    getById: (id) => api.get(`/products/scraped/${id}`),
+    create: (formData) => api.post('/admin/products', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+        },
+    }),
+    update: (id, formData) => api.put(`/admin/products/${id}`, formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+        },
+    }),
+    delete: (id) => api.delete(`/admin/products/${id}`),
+    updatePrice: (id, price) => api.put(`/admin/products/${id}`, { list_price: price }, {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+        },
+    }),
     getCategories: () => api.get('/categories'),
+    getBrands: () => api.get('/products/brands'),
 };
 
 export const ordersAPI = {
     getAll: (url = '/orders') => api.get(url),
+    getStatuses: () => api.get('/orders/statuses'),
     getById: (id) => api.get(`/orders/${id}`),
     update: (id, data) => api.put(`/orders/${id}`, data),
     delete: (id) => api.delete(`/orders/${id}`),

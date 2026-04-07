@@ -4,8 +4,13 @@ import { EyeOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 
 const { Text } = Typography;
 
-const OrdersTable = ({ orders, loading, statusColors, onShowDetail, onEdit, onDelete }) => {
+const OrdersTable = ({ orders, loading, statusColors, statusLabels = {}, onShowDetail, onEdit, onDelete }) => {
     const [isMobile, setIsMobile] = useState(false);
+
+    const formatCurrency = (value) => {
+        const numericValue = Number(value);
+        return Number.isFinite(numericValue) ? `$${numericValue.toLocaleString('es-AR')}` : '$0';
+    };
 
     useEffect(() => {
         const checkMobile = () => {
@@ -25,7 +30,7 @@ const OrdersTable = ({ orders, loading, statusColors, onShowDetail, onEdit, onDe
             dataIndex: 'orderId',
             key: 'orderId',
             width: 150,
-            sorter: (a, b) => a.orderId.localeCompare(b.orderId),
+            sorter: (a, b) => (a.orderId || '').localeCompare(b.orderId || ''),
             defaultSortOrder: 'ascend',
         },
         {
@@ -33,22 +38,22 @@ const OrdersTable = ({ orders, loading, statusColors, onShowDetail, onEdit, onDe
             key: 'customer',
             render: (_, record) => (
                 <div>
-                    <div>{record.customerInfo.cliente}</div>
+                    <div>{record.customerInfo?.name || 'Sin cliente'}</div>
                     <div style={{ fontSize: '12px', color: '#666' }}>
-                        {record.customerInfo.email}
+                        {record.customerInfo?.email || 'Sin email'}
                     </div>
                 </div>
             ),
             sorter: (a, b) =>
-                a.customerInfo.cliente.localeCompare(b.customerInfo.cliente),
+                (a.customerInfo?.name || '').localeCompare(b.customerInfo?.name || ''),
         },
         {
             title: 'Total',
             dataIndex: 'total',
             key: 'total',
             width: 100,
-            render: (total) => `$${total.toLocaleString()}`,
-            sorter: (a, b) => a.total - b.total,
+            render: (total) => formatCurrency(total),
+            sorter: (a, b) => Number(a.total || 0) - Number(b.total || 0),
         },
         {
             title: 'Estado',
@@ -56,10 +61,10 @@ const OrdersTable = ({ orders, loading, statusColors, onShowDetail, onEdit, onDe
             key: 'status',
             render: (status) => (
                 <Tag color={statusColors[status] || 'default'}>
-                    {status.toUpperCase()}
+                    {statusLabels[status] || String(status || 'pending').toUpperCase()}
                 </Tag>
             ),
-            sorter: (a, b) => a.status.localeCompare(b.status),
+            sorter: (a, b) => (a.status || '').localeCompare(b.status || ''),
             width: 120,
         },
         {
@@ -79,7 +84,7 @@ const OrdersTable = ({ orders, loading, statusColors, onShowDetail, onEdit, onDe
                     />
                     <Popconfirm
                         title="¿Está seguro de eliminar este pedido?"
-                        onConfirm={() => onDelete(record.orderId)}
+                        onConfirm={() => onDelete(record)}
                         okText="Sí"
                         cancelText="No"
                     >
@@ -100,24 +105,24 @@ const OrdersTable = ({ orders, loading, statusColors, onShowDetail, onEdit, onDe
         >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                 <div style={{ flex: 1 }}>
-                    <Text strong style={{ fontSize: '13px' }}>{order.orderId}</Text>
+                    <Text strong style={{ fontSize: '13px' }}>{order.orderId || 'Sin ID'}</Text>
                     <div style={{ marginTop: 4 }}>
                         <Tag color={statusColors[order.status] || 'default'} style={{ fontSize: '11px' }}>
-                            {order.status.toUpperCase()}
+                            {statusLabels[order.status] || String(order.status || 'pending').toUpperCase()}
                         </Tag>
                     </div>
                 </div>
                 <Text strong style={{ fontSize: '15px', color: '#1677ff' }}>
-                    ${order.total.toLocaleString()}
+                    {formatCurrency(order.total)}
                 </Text>
             </div>
 
             <div style={{ marginBottom: 8 }}>
                 <Text style={{ fontSize: '13px', display: 'block' }}>
-                    {order.customerInfo.cliente}
+                    {order.customerInfo?.name || 'Sin cliente'}
                 </Text>
                 <Text type="secondary" style={{ fontSize: '11px' }}>
-                    {order.customerInfo.email}
+                    {order.customerInfo?.email || 'Sin email'}
                 </Text>
             </div>
 
@@ -136,7 +141,7 @@ const OrdersTable = ({ orders, loading, statusColors, onShowDetail, onEdit, onDe
                 />
                 <Popconfirm
                     title="¿Eliminar pedido?"
-                    onConfirm={() => onDelete(order.orderId)}
+                    onConfirm={() => onDelete(order)}
                     okText="Sí"
                     cancelText="No"
                 >
