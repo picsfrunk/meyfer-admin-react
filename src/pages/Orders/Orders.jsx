@@ -179,18 +179,20 @@ const Orders = () => {
         }
     };
 
-    const handleRefreshOrderValues = async (orderId) => {
+    const handlePricingUpdate = async (orderId, payload) => {
         try {
-            const { data } = await ordersAPI.refreshOrderValues(orderId);
+            const { data } = await ordersAPI.updatePricing(orderId, payload);
             const updatedOrderPayload = data?.order || data?.updatedOrder || data;
             if (updatedOrderPayload && !Array.isArray(updatedOrderPayload) && typeof updatedOrderPayload === 'object') {
                 setSelectedOrder(normalizeOrderFromApi(updatedOrderPayload));
             }
             message.success('Valores del pedido actualizados correctamente');
             await loadOrders(selectedStatuses, showDeleted, allSelected);
+            return updatedOrderPayload;
         } catch (error) {
             message.error(getApiErrorMessage(error, 'Error al actualizar valores del pedido'));
             console.error(error);
+            throw error;
         }
     };
 
@@ -293,7 +295,7 @@ const Orders = () => {
                 onClose={() => setDetailModalVisible(false)}
                 onQuickStatusUpdate={handleStatusUpdate}
                 onResendEmail={handleResendEmail}
-                onRefreshOrderValues={handleRefreshOrderValues}
+                onPricingUpdate={handlePricingUpdate}
             />
         </div>
     );

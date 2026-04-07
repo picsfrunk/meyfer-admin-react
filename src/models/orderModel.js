@@ -117,12 +117,14 @@ export const normalizeOrderFromApi = (order = {}) => {
         __v: Number(order.__v ?? 0),
         orderId: order.orderId || '',
         customerInfo: normalizeCustomerInfo(customerInfo),
+        extraCharge: Number(order.extraCharge ?? 0),
         total: Number(order.total ?? 0),
         totalItems: Number(order.totalItems ?? cartItems.reduce((sum, item) => sum + Number(item?.qty ?? 0), 0)),
         status: normalizeStatusKey(order.status),
         createdAt: order.createdAt || null,
         cartItems: cartItems.map((item) => ({
             qty: Number(item?.qty ?? 0),
+            priceAtPurchase: Number(item?.priceAtPurchase ?? item?.productCartItem?.list_price ?? 0),
             productCartItem: normalizeProductCartItem(item?.productCartItem),
         })),
     };

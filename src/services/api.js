@@ -83,6 +83,7 @@ export const ordersAPI = {
     getStatuses: () => api.get('/orders/statuses'),
     getById: (id) => api.get(`/orders/${id}`),
     update: (id, data) => api.put(`/orders/${id}`, data),
+    updatePricing: (id, data) => api.patch(`/orders/${id}/pricing`, data),
     delete: (id) => api.delete(`/orders/${id}`),
     updateStatus: (id, status) => api.patch(`/orders/${id}/status`, { status }),
     resendOrderEmail: (id) => api.post(`/orders/${id}/resend-emails`),

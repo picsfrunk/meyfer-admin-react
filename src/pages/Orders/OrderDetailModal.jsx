@@ -1,6 +1,20 @@
 import React from 'react';
-import { Modal, Descriptions, Tag, Table, Typography, Button, Select } from 'antd';
-import { MailOutlined, ReloadOutlined } from '@ant-design/icons';
+import {
+    Modal,
+    Descriptions,
+    Tag,
+    Table,
+    Typography,
+    Button,
+    Select,
+    Switch,
+    InputNumber,
+    Space,
+    message,
+} from 'antd';
+import { MailOutlined, ReloadOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { productsAPI } from '../../services/api';
+import { getApiErrorMessage } from '../../utils/apiError';
 
 const { Title, Text } = Typography;
 
@@ -20,15 +34,43 @@ const OrderDetailModal = ({
     onClose,
     onQuickStatusUpdate,
     onResendEmail,
-    onRefreshOrderValues,
+    onPricingUpdate,
 }) => {
     const [selectedStatus, setSelectedStatus] = React.useState('');
     const [statusUpdating, setStatusUpdating] = React.useState(false);
     const [valuesUpdating, setValuesUpdating] = React.useState(false);
+    const [editMode, setEditMode] = React.useState(false);
+    const [editableItems, setEditableItems] = React.useState([]);
+    const [extraCharge, setExtraCharge] = React.useState(0);
+    const [productOptions, setProductOptions] = React.useState([]);
+    const [productSearchLoading, setProductSearchLoading] = React.useState(false);
+    const [selectedProductToAdd, setSelectedProductToAdd] = React.useState(null);
 
     React.useEffect(() => {
         setSelectedStatus(order?.status || defaultStatus || '');
     }, [order, defaultStatus]);
+
+    React.useEffect(() => {
+        if (!order) {
+            setEditableItems([]);
+            setExtraCharge(0);
+            setEditMode(false);
+            return;
+        }
+
+        const items = Array.isArray(order.cartItems)
+            ? order.cartItems.map((item, index) => ({
+                __rowKey: `${item?.productCartItem?.product_id || 'item'}-${index}`,
+                qty: Number(item?.qty ?? 1),
+                priceAtPurchase: Number(item?.priceAtPurchase ?? item?.productCartItem?.list_price ?? 0),
+                productCartItem: item?.productCartItem || {},
+            }))
+            : [];
+
+        setEditableItems(items);
+        setExtraCharge(Number(order.extraCharge ?? 0));
+        setEditMode(false);
+    }, [order]);
 
     if (!order) return null;
 
@@ -37,12 +79,12 @@ const OrderDetailModal = ({
         return Number.isFinite(numericValue) ? `$${numericValue.toLocaleString('es-AR')}` : '$0';
     };
 
-    const tableItems = Array.isArray(order.cartItems)
+    const tableItems = editMode ? editableItems : (Array.isArray(order.cartItems)
         ? order.cartItems.map((item, index) => ({
             ...item,
             __rowKey: `${item?.productCartItem?.product_id || 'item'}-${index}`,
         }))
-        : [];
+        : []);
 
     const customerAddress = order.customerInfo?.direccion || {};
     const fullAddress = [
@@ -80,11 +122,95 @@ const OrderDetailModal = ({
         }
     };
 
+    const loadProductOptions = async (searchText) => {
+        const trimmed = String(searchText || '').trim();
+        if (trimmed.length < 2) {
+            setProductOptions([]);
+            return;
+        }
+
+        setProductSearchLoading(true);
+        try {
+            const { data } = await productsAPI.getAll({ page: 1, limit: 20, search: trimmed });
+            const productsFromApi = Array.isArray(data?.products)
+                ? data.products
+                : (Array.isArray(data) ? data : []);
+
+            const normalized = productsFromApi.map((product) => ({
+                value: product.product_id,
+                label: `${product.product_id} - ${product.display_name || 'Sin nombre'}`,
+                product,
+            }));
+            setProductOptions(normalized);
+        } catch (error) {
+            setProductOptions([]);
+            message.error(getApiErrorMessage(error, 'No se pudieron buscar productos'));
+        } finally {
+            setProductSearchLoading(false);
+        }
+    };
+
+    const handleEditableItemChange = (rowKey, field, value) => {
+        setEditableItems((currentItems) =>
+            currentItems.map((item) => (item.__rowKey === rowKey
+                ? { ...item, [field]: value }
+                : item))
+        );
+    };
+
+    const handleRemoveEditableItem = (rowKey) => {
+        setEditableItems((currentItems) => currentItems.filter((item) => item.__rowKey !== rowKey));
+    };
+
+    const handleAddProduct = () => {
+        if (!selectedProductToAdd?.product_id) return;
+
+        const existingItem = editableItems.find(
+            (item) => item?.productCartItem?.product_id === selectedProductToAdd.product_id
+        );
+
+        if (existingItem) {
+            setEditableItems((currentItems) =>
+                currentItems.map((item) => (item.__rowKey === existingItem.__rowKey
+                    ? { ...item, qty: Number(item.qty || 0) + 1 }
+                    : item))
+            );
+        } else {
+            setEditableItems((currentItems) => [
+                ...currentItems,
+                {
+                    __rowKey: `${selectedProductToAdd.product_id}-${Date.now()}`,
+                    qty: 1,
+                    priceAtPurchase: Number(selectedProductToAdd.final_price ?? selectedProductToAdd.list_price ?? 0),
+                    productCartItem: selectedProductToAdd,
+                },
+            ]);
+        }
+
+        setSelectedProductToAdd(null);
+    };
+
     const handleRefreshValues = async () => {
-        if (!onRefreshOrderValues) return;
+        if (!onPricingUpdate) return;
+
+        const cartItemsPayload = editableItems.map((item) => ({
+            productCartItem: { product_id: item?.productCartItem?.product_id || '' },
+            qty: Number(item?.qty ?? 0),
+            priceAtPurchase: Number(item?.priceAtPurchase ?? 0),
+        }));
+
+        if (cartItemsPayload.length === 0) {
+            message.error('Debes mantener al menos un producto en el pedido');
+            return;
+        }
+
         setValuesUpdating(true);
         try {
-            await onRefreshOrderValues(order.orderId);
+            await onPricingUpdate(order.orderId, {
+                cartItems: cartItemsPayload,
+                extraCharge: Number(extraCharge ?? 0),
+            });
+            setEditMode(false);
         } finally {
             setValuesUpdating(false);
         }
@@ -108,23 +234,51 @@ const OrderDetailModal = ({
             title: 'Cantidad',
             dataIndex: 'qty',
             width: 80,
-            render: (q, r) => `${q || 0} ${r.productCartItem?.base_unit_name || ''}`,
+            render: (q, r) => (editMode ? (
+                <InputNumber
+                    min={1}
+                    precision={0}
+                    value={q}
+                    onChange={(value) => handleEditableItemChange(r.__rowKey, 'qty', Number(value ?? 1))}
+                />
+            ) : `${q || 0} ${r.productCartItem?.base_unit_name || ''}`),
         },
         {
             title: 'Precio Unit.',
-            dataIndex: ['productCartItem', 'list_price'],
-            render: (p) => formatCurrency(p),
+            dataIndex: 'priceAtPurchase',
+            render: (p, r) => (editMode ? (
+                <InputNumber
+                    min={0}
+                    precision={2}
+                    value={Number(p ?? 0)}
+                    onChange={(value) => handleEditableItemChange(r.__rowKey, 'priceAtPurchase', Number(value ?? 0))}
+                />
+            ) : formatCurrency(p ?? r?.productCartItem?.list_price)),
             width: 120,
         },
         {
             title: 'Subtotal',
             render: (_, r) => {
                 const quantity = Number(r?.qty ?? 0);
-                const listPrice = Number(r?.productCartItem?.list_price ?? 0);
+                const listPrice = Number(r?.priceAtPurchase ?? r?.productCartItem?.list_price ?? 0);
                 return formatCurrency(quantity * listPrice);
             },
             width: 120,
         },
+        ...(editMode
+            ? [{
+                title: '',
+                width: 56,
+                render: (_, r) => (
+                    <Button
+                        danger
+                        type="text"
+                        icon={<DeleteOutlined />}
+                        onClick={() => handleRemoveEditableItem(r.__rowKey)}
+                    />
+                ),
+            }]
+            : []),
     ];
 
     return (
@@ -147,6 +301,7 @@ const OrderDetailModal = ({
                         {currentStatusLabel}
                     </Tag>
                 </Descriptions.Item>
+                <Descriptions.Item label="Recargo">{formatCurrency(extraCharge)}</Descriptions.Item>
                 <Descriptions.Item label="Total">{formatCurrency(order.total)}</Descriptions.Item>
             </Descriptions>
 
@@ -162,6 +317,44 @@ const OrderDetailModal = ({
             </div>
 
             <div style={{ marginTop: 16, textAlign: 'center' }}>
+                <div style={{ marginBottom: 12 }}>
+                    <Space align="center">
+                        <Text strong>Modo edición</Text>
+                        <Switch checked={editMode} onChange={setEditMode} />
+                    </Space>
+                </div>
+
+                {editMode ? (
+                    <div style={{ marginBottom: 16 }}>
+                        <Space wrap>
+                            <Select
+                                showSearch
+                                placeholder="Agregar por código o descripción"
+                                style={{ minWidth: 320 }}
+                                filterOption={false}
+                                options={productOptions}
+                                value={selectedProductToAdd?.product_id}
+                                loading={productSearchLoading}
+                                onSearch={loadProductOptions}
+                                onChange={(value) => {
+                                    const selected = productOptions.find((option) => option.value === value)?.product;
+                                    setSelectedProductToAdd(selected || null);
+                                }}
+                            />
+                            <Button type="primary" icon={<PlusOutlined />} onClick={handleAddProduct}>
+                                Agregar Producto
+                            </Button>
+                            <InputNumber
+                                min={0}
+                                precision={2}
+                                addonBefore="Recargo"
+                                value={Number(extraCharge ?? 0)}
+                                onChange={(value) => setExtraCharge(Number(value ?? 0))}
+                            />
+                        </Space>
+                    </div>
+                ) : null}
+
                 <Text strong style={{ display: 'block', marginBottom: 8 }}>Cambiar Estado:</Text>
                 <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <Select
@@ -187,9 +380,10 @@ const OrderDetailModal = ({
                         icon={<ReloadOutlined />}
                         onClick={handleRefreshValues}
                         loading={valuesUpdating}
+                        disabled={!editMode}
                         style={{ marginRight: 8 }}
                     >
-                        Actualizar Valores
+                        Guardar Valores
                     </Button>
                     <Button
                         type="default"
