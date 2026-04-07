@@ -23,6 +23,8 @@ const isDeletedStatus = (status) => {
     return normalized.includes('elimin') || normalized.includes('delet');
 };
 
+const buildEditableRowKey = (productId, uid) => `${productId || 'item'}-${uid}`;
+
 const OrderDetailModal = ({
     visible,
     order,
@@ -45,6 +47,7 @@ const OrderDetailModal = ({
     const [productOptions, setProductOptions] = React.useState([]);
     const [productSearchLoading, setProductSearchLoading] = React.useState(false);
     const [selectedProductToAdd, setSelectedProductToAdd] = React.useState(null);
+    const nextEditableItemIdRef = React.useRef(1);
 
     React.useEffect(() => {
         setSelectedStatus(order?.status || defaultStatus || '');
@@ -60,7 +63,8 @@ const OrderDetailModal = ({
 
         const items = Array.isArray(order.cartItems)
             ? order.cartItems.map((item, index) => ({
-                __rowKey: `${item?.productCartItem?.product_id || 'item'}-${index}`,
+                __uid: index + 1,
+                __rowKey: buildEditableRowKey(item?.productCartItem?.product_id, index + 1),
                 qty: Number(item?.qty ?? 1),
                 priceAtPurchase: Number(item?.priceAtPurchase ?? item?.productCartItem?.list_price ?? 0),
                 productCartItem: item?.productCartItem || {},
@@ -70,6 +74,7 @@ const OrderDetailModal = ({
         setEditableItems(items);
         setExtraCharge(Number(order.extraCharge ?? 0));
         setEditMode(false);
+        nextEditableItemIdRef.current = items.length + 1;
     }, [order]);
 
     if (!order) return null;
@@ -82,7 +87,7 @@ const OrderDetailModal = ({
     const tableItems = editMode ? editableItems : (Array.isArray(order.cartItems)
         ? order.cartItems.map((item, index) => ({
             ...item,
-            __rowKey: `${item?.productCartItem?.product_id || 'item'}-${index}`,
+            __rowKey: buildEditableRowKey(item?.productCartItem?.product_id, index + 1),
         }))
         : []);
 
@@ -164,28 +169,18 @@ const OrderDetailModal = ({
 
     const handleAddProduct = () => {
         if (!selectedProductToAdd?.product_id) return;
-
-        const existingItem = editableItems.find(
-            (item) => item?.productCartItem?.product_id === selectedProductToAdd.product_id
-        );
-
-        if (existingItem) {
-            setEditableItems((currentItems) =>
-                currentItems.map((item) => (item.__rowKey === existingItem.__rowKey
-                    ? { ...item, qty: Number(item.qty || 0) + 1 }
-                    : item))
-            );
-        } else {
-            setEditableItems((currentItems) => [
-                ...currentItems,
-                {
-                    __rowKey: `${selectedProductToAdd.product_id}-${Date.now()}`,
-                    qty: 1,
-                    priceAtPurchase: Number(selectedProductToAdd.final_price ?? selectedProductToAdd.list_price ?? 0),
-                    productCartItem: selectedProductToAdd,
-                },
-            ]);
-        }
+        const newUid = nextEditableItemIdRef.current;
+        setEditableItems((currentItems) => [
+            ...currentItems,
+            {
+                __uid: newUid,
+                __rowKey: buildEditableRowKey(selectedProductToAdd.product_id, newUid),
+                qty: 1,
+                priceAtPurchase: Number(selectedProductToAdd.final_price ?? selectedProductToAdd.list_price ?? 0),
+                productCartItem: selectedProductToAdd,
+            },
+        ]);
+        nextEditableItemIdRef.current += 1;
 
         setSelectedProductToAdd(null);
     };
@@ -253,7 +248,7 @@ const OrderDetailModal = ({
                     value={Number(p ?? 0)}
                     onChange={(value) => handleEditableItemChange(r.__rowKey, 'priceAtPurchase', Number(value ?? 0))}
                 />
-            ) : formatCurrency(p ?? r?.productCartItem?.list_price)),
+            ) : formatCurrency(p)),
             width: 120,
         },
         {
@@ -383,7 +378,7 @@ const OrderDetailModal = ({
                         disabled={!editMode}
                         style={{ marginRight: 8 }}
                     >
-                        Guardar Valores
+                        Guardar Cambios
                     </Button>
                     <Button
                         type="default"
