@@ -10,7 +10,7 @@ import Config from './pages/Config';
 import Catalog from './pages/Catalog';
 import Orders from './pages/Orders/Orders.jsx';
 import Products from './pages/Products/Products.jsx';
-import ScraperPage from './pages/ScraperPage';   // ← nuevo
+import ProcesosPage from './pages/ProcesosPage';
 
 // Configuración de tema para Ant Design
 const theme = {
@@ -75,17 +75,20 @@ function App() {
                             }
                         />
 
-                        {/* ── Monitor de Scrapers ── */}
+                        {/* ── Monitor de Procesos ── */}
                         <Route
-                            path="/scraper"
+                            path="/procesos"
                             element={
                                 <ProtectedRoute>
                                     <DashboardLayout>
-                                        <ScraperPage />
+                                        <ProcesosPage />
                                     </DashboardLayout>
                                 </ProtectedRoute>
                             }
                         />
+
+                        {/* Redirección legacy: /scraper → /procesos */}
+                        <Route path="/scraper" element={<Navigate to="/procesos" replace />} />
 
                         {/* Redirección por defecto */}
                         <Route path="*" element={<Navigate to="/orders" replace />} />

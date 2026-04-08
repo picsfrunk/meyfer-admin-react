@@ -74,11 +74,11 @@ const DashboardLayout = ({ children }) => {
             },
         },
         {
-            key: '/scraper',
+            key: '/procesos',
             icon: <RobotOutlined />,
-            label: 'Scrapers',
+            label: 'Procesos',
             onClick: () => {
-                navigate('/scraper');
+                navigate('/procesos');
                 if (isMobile) setDrawerVisible(false);
             },
         },

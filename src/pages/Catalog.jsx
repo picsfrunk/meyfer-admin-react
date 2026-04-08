@@ -104,11 +104,11 @@ const Catalog = () => {
         return new Date(dateString).toLocaleString('es-AR');
     };
 
-    // ── Scraper Completo ────────────────────────────────────────────────────
+    // ── Sincronización Completa ────────────────────────────────────────────────────
 
     const handleScrapeComplete = () => {
         Modal.confirm({
-            title: '¿Ejecutar scraper completo?',
+            title: '¿Ejecutar sincronización completa?',
             icon: <ExclamationCircleOutlined />,
             content: (
                 <Space direction="vertical" size={4}>
@@ -127,9 +127,9 @@ const Catalog = () => {
                         pageDelay: 800,
                         categoryDelay: 800,
                     });
-                    message.success(`Scraper completo iniciado — Job ID: ${response.data.result?.jobId ?? '—'}`);
+                    message.success(`Sincronización completa iniciada — Job ID: ${response.data.result?.jobId ?? '—'}`);
                 } catch (error) {
-                    message.error(getApiErrorMessage(error, 'Error al iniciar el scraper completo'));
+                    message.error(getApiErrorMessage(error, 'Error al iniciar la sincronización completa'));
                 } finally {
                     setLoading(false);
                 }
@@ -137,7 +137,7 @@ const Catalog = () => {
         });
     };
 
-    // ── Scraper por Categorías ──────────────────────────────────────────────
+    // ── Sincronización por Categorías ──────────────────────────────────────────────
 
     const handleCategoryChange = (categoryIds) => {
         setSelectedCategories(categoryIds);
@@ -161,7 +161,7 @@ const Catalog = () => {
         const totalSelected = selectedCategoriesData.reduce((sum, c) => sum + c.product_count, 0);
 
         Modal.confirm({
-            title: isAll ? '¿Ejecutar scraper completo?' : `¿Ejecutar ${selectedCategories.length} categorías?`,
+            title: isAll ? '¿Ejecutar sincronización completa?' : `¿Sincronizar ${selectedCategories.length} categorías?`,
             icon: <ExclamationCircleOutlined />,
             content: isAll ? (
                 <Space direction="vertical" size={4}>
@@ -197,13 +197,13 @@ const Catalog = () => {
                     const response = await productsAPI.scrape(payload);
                     message.success(
                         isAll
-                            ? `Scraper completo iniciado — Job ID: ${response.data.result?.jobId ?? '—'}`
-                            : `Scraper iniciado para ${selectedCategories.length} categorías — Job ID: ${response.data.result?.jobId ?? '—'}`
+                            ? `Sincronización completa iniciada — Job ID: ${response.data.result?.jobId ?? '—'}`
+                            : `Sincronización iniciada para ${selectedCategories.length} categorías — Job ID: ${response.data.result?.jobId ?? '—'}`
                     );
                     setSelectedCategories([]);
                     setSelectAll(false);
                 } catch (error) {
-                    message.error(getApiErrorMessage(error, 'Error al iniciar el scraper'));
+                    message.error(getApiErrorMessage(error, 'Error al iniciar la sincronización'));
                 } finally {
                     setLoading(false);
                 }
@@ -211,15 +211,15 @@ const Catalog = () => {
         });
     };
 
-    // ── Scraper Manual ──────────────────────────────────────────────────────
+    // ── Sincronización Manual ──────────────────────────────────────────────────────
 
     const handleScrape = (values) => {
         Modal.confirm({
-            title: '¿Ejecutar scraper manual?',
+            title: '¿Ejecutar sincronización manual?',
             icon: <ExclamationCircleOutlined />,
             content: (
                 <Text>
-                    Se va a correr el scraper para la categoría ID{' '}
+                    Se va a sincronizar la categoría ID{' '}
                     <Text strong>{values.categoryIds}</Text>.
                 </Text>
             ),
@@ -230,10 +230,10 @@ const Catalog = () => {
                 setLoading(true);
                 try {
                     const response = await productsAPI.scrape(values);
-                    message.success(`Scraper iniciado — Job ID: ${response.data.result?.jobId ?? '—'}`);
+                    message.success(`Sincronización iniciada — Job ID: ${response.data.result?.jobId ?? '—'}`);
                     form.resetFields();
                 } catch (error) {
-                    message.error(getApiErrorMessage(error, 'Error al iniciar el scraper'));
+                    message.error(getApiErrorMessage(error, 'Error al iniciar la sincronización'));
                 } finally {
                     setLoading(false);
                 }
@@ -266,16 +266,19 @@ const Catalog = () => {
                 Gestión de Catálogo
             </Title>
 
-            {/* Estadísticas */}
+            {/* ── 1. Estado del Catálogo ─────────────────────────────────── */}
+            <Divider orientation="left" style={{ marginTop: 0 }}>
+                <Text strong style={{ fontSize: isMobile ? '13px' : '15px' }}>Estado del Catálogo</Text>
+            </Divider>
             <Card
                 loading={categoriesLoading}
-                style={{ marginBottom: 16 }}
+                style={{ marginBottom: 24 }}
                 styles={{ body: { padding: isMobile ? '12px' : '24px' } }}
             >
                 <Row gutter={[12, 12]}>
                     <Col xs={12} sm={8}>
                         <Statistic
-                            title="Productos"
+                            title="Total Productos"
                             value={totalProducts}
                             prefix={<ShoppingOutlined />}
                             valueStyle={{ fontSize: isMobile ? '18px' : '24px' }}
@@ -283,7 +286,7 @@ const Catalog = () => {
                     </Col>
                     <Col xs={12} sm={8}>
                         <Statistic
-                            title="Categorías"
+                            title="Total Categorías"
                             value={categories.length}
                             prefix={<AppstoreOutlined />}
                             valueStyle={{ fontSize: isMobile ? '18px' : '24px' }}
@@ -322,7 +325,12 @@ const Catalog = () => {
                 )}
             </Card>
 
-            {/* Scraper Completo */}
+            {/* ── 2. Acciones de Sincronización ─────────────────────────── */}
+            <Divider orientation="left">
+                <Text strong style={{ fontSize: isMobile ? '13px' : '15px' }}>Sincronización de Catálogo</Text>
+            </Divider>
+
+            {/* Sincronización Completa */}
             <Card
                 style={{ marginBottom: 16 }}
                 styles={{ body: { padding: isMobile ? '12px' : '24px' } }}
@@ -331,14 +339,14 @@ const Catalog = () => {
                     <Space>
                         <PlayCircleOutlined style={{ fontSize: isMobile ? '16px' : '18px' }} />
                         <Text strong style={{ fontSize: isMobile ? '14px' : '16px' }}>
-                            Scraper Completo
+                            Sincronización Completa
                         </Text>
                     </Space>
                     <Alert
                         message="Actualización Total del Catálogo"
                         description={isMobile
-                            ? 'Scraper completo de todas las categorías.'
-                            : 'Ejecuta un scraper completo de todas las categorías y productos. Esta operación puede tomar varios minutos.'}
+                            ? 'Sincronización completa de todas las categorías.'
+                            : 'Ejecuta una sincronización completa de todas las categorías y productos. Esta operación puede tomar varios minutos.'}
                         type="info"
                         showIcon
                         style={{ fontSize: isMobile ? '12px' : '14px' }}
@@ -352,12 +360,12 @@ const Catalog = () => {
                         size={isMobile ? 'middle' : 'large'}
                         block
                     >
-                        Ejecutar Scraper Completo
+                        Ejecutar Sincronización Completa
                     </Button>
                 </Space>
             </Card>
 
-            {/* Scraper por Categorías */}
+            {/* Sincronización por Categorías */}
             <Card
                 style={{ marginBottom: 16 }}
                 styles={{ body: { padding: isMobile ? '12px' : '24px' } }}
@@ -367,7 +375,7 @@ const Catalog = () => {
                         <Space>
                             <AppstoreOutlined style={{ fontSize: isMobile ? '16px' : '18px' }} />
                             <Text strong style={{ fontSize: isMobile ? '14px' : '16px' }}>
-                                Scraper por Categorías
+                                Sincronización por Categorías
                             </Text>
                         </Space>
                         {!isMobile && (
@@ -377,10 +385,10 @@ const Catalog = () => {
                         )}
                     </div>
                     <Alert
-                        message="Scraper por Lotes"
+                        message="Sincronización por Lotes"
                         description={isMobile
-                            ? 'Selecciona categorías para actualizar.'
-                            : "Selecciona las categorías que deseas actualizar. Usar 'Seleccionar Todo' ejecutará un scraper completo más eficiente."}
+                            ? 'Selecciona categorías para sincronizar.'
+                            : "Selecciona las categorías que deseas actualizar. Usar 'Seleccionar Todo' ejecutará una sincronización completa más eficiente."}
                         type="info"
                         showIcon
                         style={{ fontSize: isMobile ? '12px' : '14px' }}
@@ -437,9 +445,9 @@ const Catalog = () => {
                 </Space>
             </Card>
 
-            {/* Actualización desde Excel + Scraper Manual */}
+            {/* Actualización desde Excel */}
             {isMobile ? (
-                <Collapse defaultActiveKey={[]}>
+                <Collapse defaultActiveKey={[]} style={{ marginBottom: 16 }}>
                     <Panel
                         header={<Space><FileExcelOutlined /><Text strong>Actualización desde Excel</Text></Space>}
                         key="excel"
@@ -468,14 +476,56 @@ const Catalog = () => {
                             </Button>
                         </Space>
                     </Panel>
+                </Collapse>
+            ) : (
+                <Card
+                    title={<Space><FileExcelOutlined />Actualización desde Excel</Space>}
+                    style={{ marginBottom: 24 }}
+                >
+                    <Space direction="vertical" style={{ width: '100%' }}>
+                        <Alert
+                            message="Actualización de Catálogo"
+                            description="Descarga y procesa el archivo XLS remoto para actualizar precios y disponibilidad de productos."
+                            type="success"
+                            showIcon
+                            size="small"
+                        />
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ marginBottom: 8 }}>
+                                <CalendarOutlined style={{ marginRight: 8 }} />
+                                <Text strong>Última actualización:</Text>
+                            </div>
+                            <Text type="secondary">{formatDate(lastUpdate)}</Text>
+                        </div>
+                        <Divider style={{ margin: '16px 0' }} />
+                        <Button
+                            type="primary"
+                            icon={<ReloadOutlined />}
+                            loading={updateLoading}
+                            onClick={handleUpdateCatalog}
+                            size="large"
+                            block
+                        >
+                            Actualizar Catálogo desde Excel
+                        </Button>
+                    </Space>
+                </Card>
+            )}
 
+            {/* ── 3. Sincronización Manual ───────────────────────────────── */}
+            <Divider orientation="left">
+                <Text strong style={{ fontSize: isMobile ? '13px' : '15px' }}>Sincronización Manual</Text>
+            </Divider>
+
+            {isMobile ? (
+                <Collapse defaultActiveKey={[]}>
                     <Panel
-                        header={<Space><PlayCircleOutlined /><Text strong>Scraper Manual</Text></Space>}
+                        header={<Space><PlayCircleOutlined /><Text strong>Sincronización Manual</Text></Space>}
                         key="manual"
                     >
                         <Space direction="vertical" style={{ width: '100%' }} size={12}>
                             <Alert
-                                message="Ejecuta scraper para una categoría específica."
+                                message="Ejecuta sincronización para una categoría específica."
                                 type="warning"
                                 showIcon
                                 style={{ fontSize: '12px' }}
@@ -487,13 +537,13 @@ const Catalog = () => {
                                 initialValues={{ scraperType: 'categoryScraper', categoryIds: 8 }}
                             >
                                 <Form.Item
-                                    label={<Text style={{ fontSize: '12px' }}>Tipo de Scraper</Text>}
+                                    label={<Text style={{ fontSize: '12px' }}>Tipo de Sincronización</Text>}
                                     name="scraperType"
                                     rules={[{ required: true }]}
                                     style={{ marginBottom: 12 }}
                                 >
                                     <Select size="middle">
-                                        <Option value="categoryScraper">Scraper de Categorías</Option>
+                                        <Option value="categoryScraper">Sincronización de Categorías</Option>
                                     </Select>
                                 </Form.Item>
                                 <Form.Item
@@ -520,94 +570,52 @@ const Catalog = () => {
                     </Panel>
                 </Collapse>
             ) : (
-                <Row gutter={[16, 16]}>
-                    <Col span={24} lg={12}>
-                        <Card
-                            title={<Space><FileExcelOutlined />Actualización desde Excel</Space>}
-                            style={{ height: '100%' }}
+                <Card title={<Space><PlayCircleOutlined />Sincronización Manual</Space>}>
+                    <Space direction="vertical" style={{ width: '100%' }}>
+                        <Alert
+                            message="Sincronización Individual"
+                            description="Ejecuta una sincronización para una categoría específica o tipo particular de contenido."
+                            type="warning"
+                            showIcon
+                            size="small"
+                        />
+                        <Form
+                            form={form}
+                            layout="vertical"
+                            onFinish={handleScrape}
+                            initialValues={{ scraperType: 'categoryScraper', categoryIds: 8 }}
                         >
-                            <Space direction="vertical" style={{ width: '100%' }}>
-                                <Alert
-                                    message="Actualización de Catálogo"
-                                    description="Descarga y procesa el archivo XLS remoto para actualizar precios y disponibilidad de productos."
-                                    type="success"
-                                    showIcon
-                                    size="small"
-                                />
-                                <div style={{ textAlign: 'center' }}>
-                                    <div style={{ marginBottom: 8 }}>
-                                        <CalendarOutlined style={{ marginRight: 8 }} />
-                                        <Text strong>Última actualización:</Text>
-                                    </div>
-                                    <Text type="secondary">{formatDate(lastUpdate)}</Text>
-                                </div>
-                                <Divider style={{ margin: '16px 0' }} />
+                            <Form.Item
+                                label="Tipo de Sincronización"
+                                name="scraperType"
+                                rules={[{ required: true, message: 'Seleccione el tipo de sincronización' }]}
+                            >
+                                <Select placeholder="Seleccione el tipo de sincronización">
+                                    <Option value="categoryScraper">Sincronización de Categorías</Option>
+                                </Select>
+                            </Form.Item>
+                            <Form.Item
+                                label="ID de Categoría"
+                                name="categoryIds"
+                                rules={[{ required: true, message: 'Ingrese el ID de la categoría' }]}
+                                help="ID numérico de la categoría a procesar"
+                            >
+                                <InputNumber style={{ width: '100%' }} min={1} placeholder="Ej: 8" />
+                            </Form.Item>
+                            <Form.Item>
                                 <Button
                                     type="primary"
-                                    icon={<ReloadOutlined />}
-                                    loading={updateLoading}
-                                    onClick={handleUpdateCatalog}
-                                    size="large"
+                                    htmlType="submit"
+                                    loading={loading}
+                                    icon={<PlayCircleOutlined />}
                                     block
                                 >
-                                    Actualizar Catálogo desde Excel
+                                    Ejecutar
                                 </Button>
-                            </Space>
-                        </Card>
-                    </Col>
-
-                    <Col span={24} lg={12}>
-                        <Card
-                            title={<Space><PlayCircleOutlined />Scraper Manual</Space>}
-                            style={{ height: '100%' }}
-                        >
-                            <Space direction="vertical" style={{ width: '100%' }}>
-                                <Alert
-                                    message="Scraper Individual"
-                                    description="Ejecuta scraper para una categoría específica o tipo particular de contenido."
-                                    type="warning"
-                                    showIcon
-                                    size="small"
-                                />
-                                <Form
-                                    form={form}
-                                    layout="vertical"
-                                    onFinish={handleScrape}
-                                    initialValues={{ scraperType: 'categoryScraper', categoryIds: 8 }}
-                                >
-                                    <Form.Item
-                                        label="Tipo de Scraper"
-                                        name="scraperType"
-                                        rules={[{ required: true, message: 'Seleccione el tipo de scraper' }]}
-                                    >
-                                        <Select placeholder="Seleccione el tipo de scraper">
-                                            <Option value="categoryScraper">Scraper de Categorías</Option>
-                                        </Select>
-                                    </Form.Item>
-                                    <Form.Item
-                                        label="ID de Categoría"
-                                        name="categoryIds"
-                                        rules={[{ required: true, message: 'Ingrese el ID de la categoría' }]}
-                                        help="ID numérico de la categoría a procesar"
-                                    >
-                                        <InputNumber style={{ width: '100%' }} min={1} placeholder="Ej: 8" />
-                                    </Form.Item>
-                                    <Form.Item>
-                                        <Button
-                                            type="primary"
-                                            htmlType="submit"
-                                            loading={loading}
-                                            icon={<PlayCircleOutlined />}
-                                            block
-                                        >
-                                            Ejecutar Scraper
-                                        </Button>
-                                    </Form.Item>
-                                </Form>
-                            </Space>
-                        </Card>
-                    </Col>
-                </Row>
+                            </Form.Item>
+                        </Form>
+                    </Space>
+                </Card>
             )}
         </div>
     );
