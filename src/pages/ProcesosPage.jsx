@@ -20,6 +20,7 @@ import {
     ArrowUpOutlined,
     ArrowDownOutlined,
     UnorderedListOutlined,
+    WarningOutlined,
 } from '@ant-design/icons';
 import { scraperAPI } from '../services/scraperAPI';
 import { getApiErrorMessage } from '../utils/apiError';
@@ -163,34 +164,34 @@ const TriggerModal = ({ open, onClose, onSuccess }) => {
     const actions = [
         {
             key: 'sitemapScraper',
-            label: 'Sitemap Scraper',
-            desc: 'Scraping completo desde el sitemap',
+            label: 'Sincronización por Sitemap',
+            desc: 'Sincronización completa desde el sitemap del sitio',
             icon: <PlayCircleOutlined />,
-            type: 'primary',
+            danger: true,
             onClick: () => handleTrigger('sitemapScraper'),
         },
         {
             key: 'categoryScraper',
-            label: 'Category Scraper',
-            desc: 'Scraping por categorías',
+            label: 'Sincronización por Categorías',
+            desc: 'Sincronización de productos agrupados por categoría',
             icon: <PlayCircleOutlined />,
-            type: 'primary',
+            danger: true,
             onClick: () => handleTrigger('categoryScraper'),
         },
         {
             key: 'sitemapAnalysis',
             label: 'Análisis de Sitemap',
-            desc: 'Solo análisis, sin scraping',
+            desc: 'Solo análisis de estructura, sin sincronizar productos',
             icon: <BarChartOutlined />,
-            type: 'default',
+            danger: false,
             onClick: handleAnalyze,
         },
         {
             key: 'priceCheck',
-            label: 'Price Check',
-            desc: 'Verificación de precios contra Odoo',
+            label: 'Verificación de Precios',
+            desc: 'Comparación de precios contra Odoo',
             icon: <DollarOutlined />,
-            type: 'default',
+            danger: false,
             onClick: handlePriceCheck,
         },
     ];
@@ -200,21 +201,37 @@ const TriggerModal = ({ open, onClose, onSuccess }) => {
             open={open}
             onCancel={onClose}
             footer={null}
-            title={<Space><ThunderboltOutlined />Ejecutar proceso</Space>}
-            width={440}
+            title={
+                <Space>
+                    <WarningOutlined style={{ color: '#faad14' }} />
+                    <span>Ejecutar proceso técnico</span>
+                </Space>
+            }
+            width={460}
         >
+            <Alert
+                type="warning"
+                showIcon
+                style={{ marginBottom: 16 }}
+                message="Acciones técnicas del servidor"
+                description="Estas acciones disparan procesos directamente en el servidor. Las sincronizaciones pueden tomar varios minutos y afectar el catálogo en tiempo real. Usá con precaución."
+            />
             <Space direction="vertical" style={{ width: '100%' }} size={10}>
                 {actions.map(a => (
                     <Card
                         key={a.key}
                         size="small"
                         hoverable
-                        style={{ cursor: loading ? 'not-allowed' : 'pointer' }}
+                        style={{
+                            cursor: loading ? 'not-allowed' : 'pointer',
+                            borderColor: a.danger ? '#ff4d4f' : undefined,
+                        }}
                         onClick={() => !loading && a.onClick()}
                     >
                         <Space>
                             <Button
-                                type={a.type}
+                                type="primary"
+                                danger={a.danger}
                                 icon={a.icon}
                                 loading={loading === a.key}
                                 disabled={!!loading && loading !== a.key}

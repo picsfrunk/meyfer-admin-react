@@ -120,10 +120,16 @@ const DashboardLayout = ({ children }) => {
     );
 
     return (
-        <Layout style={{ minHeight: '100vh' }}>
+        <Layout style={{ height: '100vh' }}>
             {/* Sidebar para desktop */}
             {!isMobile && (
-                <Sider trigger={null} collapsible collapsed={collapsed} theme="dark">
+                <Sider
+                    trigger={null}
+                    collapsible
+                    collapsed={collapsed}
+                    theme="dark"
+                    style={{ overflow: 'auto', height: '100vh', position: 'sticky', top: 0, left: 0 }}
+                >
                     <div style={{
                         height: 32,
                         margin: 16,
@@ -158,14 +164,17 @@ const DashboardLayout = ({ children }) => {
                 <MobileMenu />
             </Drawer>
 
-            <Layout>
+            <Layout style={{ overflow: 'auto' }}>
                 <Header style={{
                     padding: '0 16px',
                     background: '#fff',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    borderBottom: '1px solid #f0f0f0'
+                    borderBottom: '1px solid #f0f0f0',
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 10,
                 }}>
                     <Button
                         type="text"
