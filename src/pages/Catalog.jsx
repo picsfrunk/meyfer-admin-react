@@ -278,7 +278,7 @@ const Catalog = () => {
                 <Row gutter={[12, 12]}>
                     <Col xs={12} sm={8}>
                         <Statistic
-                            title="Total Productos"
+                            title="Total de Productos"
                             value={totalProducts}
                             prefix={<ShoppingOutlined />}
                             valueStyle={{ fontSize: isMobile ? '18px' : '24px' }}
@@ -286,7 +286,7 @@ const Catalog = () => {
                     </Col>
                     <Col xs={12} sm={8}>
                         <Statistic
-                            title="Total Categorías"
+                            title="Total de Categorías"
                             value={categories.length}
                             prefix={<AppstoreOutlined />}
                             valueStyle={{ fontSize: isMobile ? '18px' : '24px' }}
