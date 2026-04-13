@@ -133,7 +133,7 @@ const CustomersPage = () => {
     const [saving, setSaving] = useState(false);
 
     // Success alert after create/regenerate
-    const [successAlert, setSuccessAlert] = useState(null); // { code: string }
+    const [successAlert, setSuccessAlert] = useState(null); // { code: string, type: 'create' | 'regenerate' }
 
     const [form] = Form.useForm();
     const searchRef = useRef(null);
@@ -208,7 +208,7 @@ const CustomersPage = () => {
                 const code = data?.customerCode || data?.customer?.customerCode || '';
                 handleModalClose();
                 loadCustomers();
-                setSuccessAlert({ code });
+                setSuccessAlert({ code, type: 'create' });
             }
         } catch (error) {
             if (error?.errorFields) return; // validation error, stay in modal
@@ -242,7 +242,7 @@ const CustomersPage = () => {
                     const code = data?.customerCode || data?.customer?.customerCode || '';
                     handleModalClose();
                     loadCustomers();
-                    setSuccessAlert({ code });
+                    setSuccessAlert({ code, type: 'regenerate' });
                 } catch (error) {
                     message.error(getApiErrorMessage(error, 'Error al regenerar el código'));
                 }
@@ -254,6 +254,8 @@ const CustomersPage = () => {
     const handleCopyCode = (code) => {
         navigator.clipboard.writeText(code).then(() => {
             message.success('Código copiado');
+        }).catch(() => {
+            message.error('No se pudo copiar el código al portapapeles');
         });
     };
 
@@ -340,7 +342,7 @@ const CustomersPage = () => {
                     closable
                     onClose={() => setSuccessAlert(null)}
                     style={{ marginBottom: 16 }}
-                    message={`Cliente creado. Código asignado: ${successAlert.code}`}
+                    message={`${successAlert.type === 'regenerate' ? 'Código regenerado' : 'Cliente creado'}. Código asignado: ${successAlert.code}`}
                     action={
                         <Button
                             size="small"
