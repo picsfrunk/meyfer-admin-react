@@ -91,6 +91,12 @@ export const ordersAPI = {
     getAll: (url = '/orders') => api.get(url),
     getStatuses: () => api.get('/orders/statuses'),
     getById: (id) => api.get(`/orders/${id}`),
+    getByCustomer: (customerCode, status = null) => {
+        const params = new URLSearchParams();
+        params.append('customerCode', customerCode);
+        if (status) params.append('status', status);
+        return api.get(`/orders?${params.toString()}`);
+    },
     update: (id, data) => api.put(`/orders/${id}`, data),
     updatePricing: (id, data) => api.patch(`/orders/${id}/pricing`, data),
     delete: (id) => api.delete(`/orders/${id}`),
