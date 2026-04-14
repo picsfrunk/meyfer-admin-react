@@ -27,7 +27,7 @@ import {
 import { customersAPI } from '../services/api';
 import { getApiErrorMessage } from '../utils/apiError';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 const CustomerForm = ({ form }) => (
     <Form form={form} layout="vertical">
@@ -126,6 +126,7 @@ const CustomersPage = () => {
     const [customers, setCustomers] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchText, setSearchText] = useState('');
+    const [isMobile, setIsMobile] = useState(false);
 
     // Modal state
     const [modalVisible, setModalVisible] = useState(false);
@@ -137,6 +138,13 @@ const CustomersPage = () => {
 
     const [form] = Form.useForm();
     const searchRef = useRef(null);
+
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     const loadCustomers = async () => {
         setLoading(true);
@@ -259,28 +267,33 @@ const CustomersPage = () => {
         });
     };
 
-    // ── Table columns ──────────────────────────────────────────────────────
+    // ── Desktop table columns ──────────────────────────────────────────────
     const columns = [
         {
             title: 'Código',
             dataIndex: 'customerCode',
             key: 'customerCode',
+            width: 130,
+            sorter: (a, b) => (a.customerCode || '').localeCompare(b.customerCode || ''),
             render: (code) => <Tag color="blue">{code}</Tag>,
         },
         {
             title: 'Cliente',
             dataIndex: 'cliente',
             key: 'cliente',
+            sorter: (a, b) => (a.cliente || '').localeCompare(b.cliente || ''),
         },
         {
             title: 'Razón Social',
             dataIndex: 'razonSocial',
             key: 'razonSocial',
+            sorter: (a, b) => (a.razonSocial || '').localeCompare(b.razonSocial || ''),
         },
         {
             title: 'CUIT',
             dataIndex: 'cuit',
             key: 'cuit',
+            width: 140,
         },
         {
             title: 'Email',
@@ -291,33 +304,77 @@ const CustomersPage = () => {
             title: 'Teléfono',
             dataIndex: 'telefono1',
             key: 'telefono1',
+            width: 130,
         },
         {
             title: 'Acciones',
             key: 'actions',
+            width: 100,
             render: (_, record) => (
-                <Space>
+                <Space size="small">
                     <Button
-                        type="link"
                         icon={<EditOutlined />}
+                        size="small"
                         onClick={() => openEditModal(record)}
-                    >
-                        Editar
-                    </Button>
+                    />
                     <Popconfirm
                         title="¿Eliminar este cliente? Esta acción no se puede deshacer."
-                        okText="Eliminar"
-                        cancelText="Cancelar"
+                        okText="Sí"
+                        cancelText="No"
                         onConfirm={() => handleDelete(record._id)}
                     >
-                        <Button type="link" danger icon={<DeleteOutlined />}>
-                            Eliminar
-                        </Button>
+                        <Button icon={<DeleteOutlined />} size="small" danger />
                     </Popconfirm>
                 </Space>
             ),
         },
     ];
+
+    // ── Mobile card per row ────────────────────────────────────────────────
+    const MobileCustomerCard = ({ customer }) => (
+        <Card
+            size="small"
+            style={{ marginBottom: 12 }}
+            styles={{ body: { padding: '12px' } }}
+        >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                <div style={{ flex: 1 }}>
+                    <Text strong style={{ fontSize: '13px' }}>{customer.cliente || 'Sin nombre'}</Text>
+                    <div style={{ marginTop: 4 }}>
+                        <Tag color="blue" style={{ fontSize: '11px' }}>{customer.customerCode}</Tag>
+                    </div>
+                </div>
+            </div>
+
+            <div style={{ marginBottom: 8 }}>
+                {customer.razonSocial && (
+                    <Text style={{ fontSize: '12px', display: 'block' }}>{customer.razonSocial}</Text>
+                )}
+                {customer.email && (
+                    <Text type="secondary" style={{ fontSize: '11px', display: 'block' }}>{customer.email}</Text>
+                )}
+                {customer.telefono1 && (
+                    <Text type="secondary" style={{ fontSize: '11px', display: 'block' }}>{customer.telefono1}</Text>
+                )}
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <Button
+                    icon={<EditOutlined />}
+                    size="small"
+                    onClick={() => openEditModal(customer)}
+                />
+                <Popconfirm
+                    title="¿Eliminar este cliente? Esta acción no se puede deshacer."
+                    okText="Sí"
+                    cancelText="No"
+                    onConfirm={() => handleDelete(customer._id)}
+                >
+                    <Button icon={<DeleteOutlined />} size="small" danger />
+                </Popconfirm>
+            </div>
+        </Card>
+    );
 
     return (
         <div>
@@ -368,17 +425,35 @@ const CustomersPage = () => {
                 />
             </Card>
 
-            {/* ── Table ── */}
-            <Card>
+            {/* ── Table (desktop) / Cards (mobile) ── */}
+            {isMobile ? (
+                <div>
+                    {loading ? (
+                        <div style={{ textAlign: 'center', padding: '20px' }}>
+                            <Text type="secondary">Cargando...</Text>
+                        </div>
+                    ) : filteredCustomers.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '20px' }}>
+                            <Text type="secondary">No hay clientes</Text>
+                        </div>
+                    ) : (
+                        filteredCustomers.map((customer) => (
+                            <MobileCustomerCard
+                                key={customer._id || customer.customerCode}
+                                customer={customer}
+                            />
+                        ))
+                    )}
+                </div>
+            ) : (
                 <Table
                     dataSource={filteredCustomers}
                     columns={columns}
                     loading={loading}
                     rowKey={(record) => record._id || record.customerCode}
                     pagination={{ pageSize: 20 }}
-                    scroll={{ x: true }}
                 />
-            </Card>
+            )}
 
             {/* ── Create / Edit modal ── */}
             <Modal
