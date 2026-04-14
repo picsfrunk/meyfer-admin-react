@@ -9,6 +9,7 @@ import {
     UserOutlined,
     RobotOutlined,
     AppstoreOutlined,
+    TeamOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -43,6 +44,15 @@ const DashboardLayout = ({ children }) => {
             label: 'Pedidos',
             onClick: () => {
                 navigate('/orders');
+                if (isMobile) setDrawerVisible(false);
+            },
+        },
+        {
+            key: '/customers',
+            icon: <TeamOutlined />,
+            label: 'Clientes',
+            onClick: () => {
+                navigate('/customers');
                 if (isMobile) setDrawerVisible(false);
             },
         },

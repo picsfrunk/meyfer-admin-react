@@ -78,6 +78,15 @@ export const productsAPI = {
     getBrands: () => api.get('/products/brands'),
 };
 
+export const customersAPI = {
+    getAll:         ()         => api.get('/admin/customers'),
+    getById:        (id)       => api.get(`/admin/customers/${id}`),
+    create:         (data)     => api.post('/admin/customers', data),
+    update:         (id, data) => api.put(`/admin/customers/${id}`, data),
+    delete:         (id)       => api.delete(`/admin/customers/${id}`),
+    regenerateCode: (id)       => api.post(`/admin/customers/${id}/regenerate-code`),
+};
+
 export const ordersAPI = {
     getAll: (url = '/orders') => api.get(url),
     getStatuses: () => api.get('/orders/statuses'),
