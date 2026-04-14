@@ -23,9 +23,22 @@ import {
     CopyOutlined,
     ReloadOutlined,
     SyncOutlined,
+    FileTextOutlined,
 } from '@ant-design/icons';
-import { customersAPI } from '../services/api';
+import { customersAPI, ordersAPI } from '../services/api';
 import { getApiErrorMessage } from '../utils/apiError';
+import {
+    buildStatusColors,
+    buildStatusDefinitions,
+    buildStatusLabels,
+    isDeletedStatus,
+    normalizeOrderFromApi,
+    normalizeOrdersFromApi,
+    normalizeStatusKey,
+} from '../models/orderModel';
+import OrdersTable from './Orders/OrdersTable';
+import OrderDetailModal from './Orders/OrderDetailModal';
+import EditOrderModal from './Orders/EditOrderModal';
 
 const { Title, Text } = Typography;
 
@@ -136,6 +149,20 @@ const CustomersPage = () => {
     // Success alert after create/regenerate
     const [successAlert, setSuccessAlert] = useState(null); // { code: string, type: 'create' | 'regenerate' }
 
+    // Orders modal state
+    const [ordersModalVisible, setOrdersModalVisible] = useState(false);
+    const [customerOrders, setCustomerOrders] = useState([]);
+    const [ordersLoading, setOrdersLoading] = useState(false);
+    const [selectedCustomerForOrders, setSelectedCustomerForOrders] = useState(null);
+    const [selectedOrder, setSelectedOrder] = useState(null);
+    const [detailModalVisible, setDetailModalVisible] = useState(false);
+    const [editModalVisible, setEditModalVisible] = useState(false);
+    const [statusColors, setStatusColors] = useState({});
+    const [statusLabels, setStatusLabels] = useState({});
+    const [statusDefinitions, setStatusDefinitions] = useState([]);
+    const [defaultStatusKey, setDefaultStatusKey] = useState('');
+    const [deletedStatusKey, setDeletedStatusKey] = useState('');
+
     const [form] = Form.useForm();
     const searchRef = useRef(null);
 
@@ -158,8 +185,51 @@ const CustomersPage = () => {
         }
     };
 
+    const loadOrderStatuses = async () => {
+        try {
+            const { data } = await ordersAPI.getStatuses();
+            const statuses = Array.isArray(data?.statuses) ? data.statuses : [];
+            const backendDefaultStatus = data?.defaultStatus;
+
+            if (statuses.length === 0) return;
+
+            const generatedDefinitions = buildStatusDefinitions(statuses);
+            const labels = buildStatusLabels(generatedDefinitions);
+            const detectedDeletedStatus = generatedDefinitions.find(
+                (s) => isDeletedStatus(s.key) || isDeletedStatus(s.label)
+            )?.key || '';
+            const normalizedDefault = normalizeStatusKey(backendDefaultStatus);
+            const validDefaultKey = generatedDefinitions.some((s) => s.key === normalizedDefault)
+                ? normalizedDefault
+                : generatedDefinitions.find((s) => !isDeletedStatus(s.key))?.key || generatedDefinitions[0]?.key || '';
+
+            setStatusDefinitions(generatedDefinitions);
+            setStatusLabels(labels);
+            setDefaultStatusKey(validDefaultKey);
+            setDeletedStatusKey(detectedDeletedStatus);
+            setStatusColors(buildStatusColors(generatedDefinitions));
+        } catch (error) {
+            console.error('Error loading order statuses:', error);
+        }
+    };
+
+    const loadCustomerOrders = async (customer) => {
+        setOrdersLoading(true);
+        setCustomerOrders([]);
+        try {
+            const { data } = await ordersAPI.getByCustomer(customer.customerCode);
+            setCustomerOrders(Array.isArray(data) ? normalizeOrdersFromApi(data) : []);
+        } catch (err) {
+            message.error('Error al cargar los pedidos del cliente');
+            console.error(err);
+        } finally {
+            setOrdersLoading(false);
+        }
+    };
+
     useEffect(() => {
         loadCustomers();
+        loadOrderStatuses();
     }, []);
 
     // ── Filtering ──────────────────────────────────────────────────────────
@@ -267,6 +337,69 @@ const CustomersPage = () => {
         });
     };
 
+    // ── Order action handlers (used inside the orders modal) ───────────────
+    const handleDeleteOrder = async (order) => {
+        const backendId = order?._id;
+        const publicOrderId = order?.orderId;
+        try {
+            if (backendId) {
+                try {
+                    await ordersAPI.delete(backendId);
+                } catch (firstError) {
+                    if (!publicOrderId) throw firstError;
+                    await ordersAPI.delete(publicOrderId);
+                }
+            } else if (publicOrderId) {
+                await ordersAPI.delete(publicOrderId);
+            } else {
+                throw new Error('No se encontró un identificador válido para eliminar el pedido');
+            }
+            message.success('Pedido eliminado correctamente');
+            await loadCustomerOrders(selectedCustomerForOrders);
+        } catch (error) {
+            message.error(getApiErrorMessage(error, 'Error al eliminar el pedido'));
+            console.error(error);
+        }
+    };
+
+    const handleStatusUpdate = async (orderId, newStatus) => {
+        try {
+            await ordersAPI.updateStatus(orderId, newStatus);
+            message.success('Estado actualizado correctamente');
+            await loadCustomerOrders(selectedCustomerForOrders);
+        } catch (error) {
+            message.error(getApiErrorMessage(error, 'Error al actualizar el estado'));
+            console.error(error);
+        }
+    };
+
+    const handleResendEmail = async (orderId) => {
+        try {
+            await ordersAPI.resendOrderEmail(orderId);
+            message.success('Correo reenviado correctamente');
+        } catch (error) {
+            message.error(getApiErrorMessage(error, `Error al reenviar correo de pedido ${orderId}`));
+            console.error(error);
+        }
+    };
+
+    const handlePricingUpdate = async (orderId, payload) => {
+        try {
+            const { data } = await ordersAPI.updatePricing(orderId, payload);
+            const updatedOrderPayload = data?.order || data?.updatedOrder || data;
+            if (updatedOrderPayload && !Array.isArray(updatedOrderPayload) && typeof updatedOrderPayload === 'object') {
+                setSelectedOrder(normalizeOrderFromApi(updatedOrderPayload));
+            }
+            message.success('Valores del pedido actualizados correctamente');
+            await loadCustomerOrders(selectedCustomerForOrders);
+            return updatedOrderPayload;
+        } catch (error) {
+            message.error(getApiErrorMessage(error, 'Error al actualizar valores del pedido'));
+            console.error(error);
+            throw error;
+        }
+    };
+
     // ── Desktop table columns ──────────────────────────────────────────────
     const columns = [
         {
@@ -312,6 +445,17 @@ const CustomersPage = () => {
             width: 100,
             render: (_, record) => (
                 <Space size="small">
+                    <Button
+                        icon={<FileTextOutlined />}
+                        size="small"
+                        onClick={() => {
+                            setSelectedCustomerForOrders(record);
+                            loadCustomerOrders(record);
+                            setOrdersModalVisible(true);
+                        }}
+                    >
+                        Ver Pedidos
+                    </Button>
                     <Button
                         icon={<EditOutlined />}
                         size="small"
@@ -359,6 +503,17 @@ const CustomersPage = () => {
             </div>
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <Button
+                    icon={<FileTextOutlined />}
+                    size="small"
+                    onClick={() => {
+                        setSelectedCustomerForOrders(customer);
+                        loadCustomerOrders(customer);
+                        setOrdersModalVisible(true);
+                    }}
+                >
+                    Ver Pedidos
+                </Button>
                 <Button
                     icon={<EditOutlined />}
                     size="small"
@@ -485,6 +640,57 @@ const CustomersPage = () => {
             >
                 <CustomerForm form={form} />
             </Modal>
+
+            {/* ── Orders modal ── */}
+            <Modal
+                title={
+                    selectedCustomerForOrders
+                        ? `Pedidos de ${selectedCustomerForOrders.cliente} (${selectedCustomerForOrders.customerCode})`
+                        : 'Pedidos del cliente'
+                }
+                open={ordersModalVisible}
+                onCancel={() => {
+                    setOrdersModalVisible(false);
+                    setCustomerOrders([]);
+                    setSelectedCustomerForOrders(null);
+                    setSelectedOrder(null);
+                }}
+                footer={null}
+                width={900}
+                destroyOnClose
+            >
+                <OrdersTable
+                    orders={customerOrders}
+                    loading={ordersLoading}
+                    statusColors={statusColors}
+                    statusLabels={statusLabels}
+                    onShowDetail={(o) => { setSelectedOrder(o); setDetailModalVisible(true); }}
+                    onEdit={(o) => { setSelectedOrder(o); setEditModalVisible(true); }}
+                    onDelete={handleDeleteOrder}
+                />
+            </Modal>
+
+            <OrderDetailModal
+                visible={detailModalVisible}
+                order={selectedOrder}
+                statusColors={statusColors}
+                statusLabels={statusLabels}
+                orderStatuses={statusDefinitions}
+                defaultStatus={defaultStatusKey}
+                deletedStatus={deletedStatusKey}
+                onClose={() => setDetailModalVisible(false)}
+                onQuickStatusUpdate={handleStatusUpdate}
+                onResendEmail={handleResendEmail}
+                onPricingUpdate={handlePricingUpdate}
+            />
+
+            <EditOrderModal
+                visible={editModalVisible}
+                order={selectedOrder}
+                orderStatuses={statusDefinitions}
+                onClose={() => setEditModalVisible(false)}
+                onUpdated={() => loadCustomerOrders(selectedCustomerForOrders)}
+            />
         </div>
     );
 };
