@@ -32,12 +32,23 @@ const OrdersTable = ({ orders, loading, statusColors, statusLabels = {}, onShowD
             width: 150,
             sorter: (a, b) => (a.orderId || '').localeCompare(b.orderId || ''),
             defaultSortOrder: 'ascend',
+            render: (orderId, record) => (
+                <span
+                    style={{ cursor: 'pointer', color: '#1677ff' }}
+                    onClick={() => onShowDetail(record)}
+                >
+                    {orderId}
+                </span>
+            ),
         },
         {
             title: 'Cliente',
             key: 'customer',
             render: (_, record) => (
-                <div>
+                <div
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => onShowDetail(record)}
+                >
                     <div>{record.customerInfo?.name || 'Sin cliente'}</div>
                     <div style={{ fontSize: '12px', color: '#666' }}>
                         {record.customerInfo?.email || 'Sin email'}
@@ -75,12 +86,18 @@ const OrdersTable = ({ orders, loading, statusColors, statusLabels = {}, onShowD
                     <Button
                         icon={<EyeOutlined />}
                         size="small"
-                        onClick={() => onShowDetail(record)}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onShowDetail(record);
+                        }}
                     />
                     <Button
                         icon={<EditOutlined />}
                         size="small"
-                        onClick={() => onEdit(record)}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onEdit(record);
+                        }}
                     />
                     <Popconfirm
                         title="¿Está seguro de eliminar este pedido?"
@@ -88,7 +105,12 @@ const OrdersTable = ({ orders, loading, statusColors, statusLabels = {}, onShowD
                         okText="Sí"
                         cancelText="No"
                     >
-                        <Button icon={<DeleteOutlined />} size="small" danger />
+                        <Button
+                            icon={<DeleteOutlined />}
+                            size="small"
+                            danger
+                            onClick={(e) => e.stopPropagation()}
+                        />
                     </Popconfirm>
                 </Space>
             ),
@@ -131,14 +153,20 @@ const OrdersTable = ({ orders, loading, statusColors, statusLabels = {}, onShowD
                 <Button
                     icon={<EyeOutlined />}
                     size="small"
-                    onClick={() => onShowDetail(order)}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onShowDetail(order);
+                    }}
                 >
                     Ver
                 </Button>
                 <Button
                     icon={<EditOutlined />}
                     size="small"
-                    onClick={() => onEdit(order)}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onEdit(order);
+                    }}
                 />
                 <Popconfirm
                     title="¿Eliminar pedido?"
@@ -146,7 +174,12 @@ const OrdersTable = ({ orders, loading, statusColors, statusLabels = {}, onShowD
                     okText="Sí"
                     cancelText="No"
                 >
-                    <Button icon={<DeleteOutlined />} size="small" danger />
+                    <Button
+                        icon={<DeleteOutlined />}
+                        size="small"
+                        danger
+                        onClick={(e) => e.stopPropagation()}
+                    />
                 </Popconfirm>
             </div>
         </Card>
@@ -179,10 +212,6 @@ const OrdersTable = ({ orders, loading, statusColors, statusLabels = {}, onShowD
             rowKey="orderId"
             loading={loading}
             pagination={{ pageSize: 10 }}
-            onRow={(record) => ({
-                onClick: () => onShowDetail(record),
-                style: { cursor: 'pointer' },
-            })}
         />
     );
 };
