@@ -57,6 +57,27 @@ export const scraperAPI = {
      */
     triggerAnalysis: () => api.post('/admin/scraper/analyze', {}),
 
+    // ── Cancelación ───────────────────────────────────────────────────────
+
+    /**
+     * DELETE /admin/scraper/jobs/:jobId
+     * Cancela un job específico.
+     * - Si está en cola: lo elimina inmediatamente (status: 'cancelled').
+     * - Si está en ejecución: lo marca para cancelación graceful (status: 'cancelling').
+     * - Si ya terminó: retorna 400.
+     * - Si no existe: retorna 404.
+     *
+     * @param {string} jobId
+     */
+    cancelJob: (jobId) => api.delete(`/admin/scraper/jobs/${jobId}`),
+
+    /**
+     * DELETE /admin/scraper/jobs/all
+     * Elimina todos los jobs pendientes (enqueued) de la cola.
+     * No interrumpe el job en ejecución.
+     */
+    purgeQueue: () => api.delete('/admin/scraper/jobs/all'),
+
     // ── Price Check ────────────────────────────────────────────────────────
 
     /**

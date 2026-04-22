@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
     Row, Col, Card, Statistic, Tag, Table, Button, Modal,
     Typography, Space, Badge, Tooltip, Divider, Alert, Spin,
-    Descriptions, Empty, message, Tabs, Pagination, Select,
+    Descriptions, Empty, message, Tabs, Pagination, Select, Popconfirm,
 } from 'antd';
 import {
     PlayCircleOutlined,
@@ -21,6 +21,8 @@ import {
     ArrowDownOutlined,
     UnorderedListOutlined,
     WarningOutlined,
+    DeleteOutlined,
+    StopOutlined,
 } from '@ant-design/icons';
 import { scraperAPI } from '../services/scraperAPI';
 import { getApiErrorMessage } from '../utils/apiError';
@@ -477,7 +479,50 @@ const PriceCheckDetailModal = ({ id, onClose }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const QueueTab = ({ statusData, stats, refreshing, onRefresh }) => {
-    const [elapsed, setElapsed] = useState(statusData?.running?.elapsedMs ?? 0);
+    const [elapsed, setElapsed]         = useState(statusData?.running?.elapsedMs ?? 0);
+    const [cancellingId, setCancellingId] = useState(null);
+    const [purging, setPurging]           = useState(false);
+
+    const handleCancelJob = async (jobId) => {
+        setCancellingId(jobId);
+        try {
+            const res = await scraperAPI.cancelJob(jobId);
+            const { status } = res.data;
+            if (status === 'cancelling') {
+                message.info('Job marcado para cancelación graceful. Se detendrá lo antes posible.');
+            } else {
+                message.success('Job eliminado de la cola.');
+            }
+            onRefresh();
+        } catch (err) {
+            const serverMsg = err.response?.data?.message;
+            if (err.response?.status === 400) {
+                message.warning(serverMsg || 'No se puede cancelar un job que ya terminó.');
+            } else if (err.response?.status === 404) {
+                message.error('Job no encontrado.');
+            } else {
+                message.error(serverMsg || 'Error al cancelar el job.');
+            }
+        } finally {
+            setCancellingId(null);
+        }
+    };
+
+    const handlePurgeQueue = async () => {
+        setPurging(true);
+        try {
+            const res = await scraperAPI.purgeQueue();
+            const { cancelledCount, message: msg } = res.data;
+            message.success(msg || `${cancelledCount} job(s) eliminado(s) de la cola.`);
+            onRefresh();
+        } catch (err) {
+            message.error(err.response?.data?.message || 'Error al purgar la cola.');
+        } finally {
+            setPurging(false);
+        }
+    };
+
+
 
     useEffect(() => {
         if (!statusData?.running) return;
@@ -522,6 +567,25 @@ const QueueTab = ({ statusData, stats, refreshing, onRefresh }) => {
                         <Descriptions.Item label="Iniciado">
                             {formatDate(running.startedAt)}
                         </Descriptions.Item>
+                        <Descriptions.Item label="Cancelar" span={2}>
+                            <Popconfirm
+                                title="¿Cancelar el job en ejecución?"
+                                description="Se enviará una señal de cancelación graceful. El job terminará lo antes posible."
+                                onConfirm={() => handleCancelJob(running.id)}
+                                okText="Cancelar job"
+                                okButtonProps={{ danger: true }}
+                                cancelText="No"
+                            >
+                                <Button
+                                    size="small"
+                                    danger
+                                    icon={<StopOutlined />}
+                                    loading={cancellingId === running.id}
+                                >
+                                    Detener
+                                </Button>
+                            </Popconfirm>
+                        </Descriptions.Item>
                     </Descriptions>
                 ) : (
                     <Text type="secondary">No hay ningún job en ejecución.</Text>
@@ -538,6 +602,27 @@ const QueueTab = ({ statusData, stats, refreshing, onRefresh }) => {
                             <Badge count={statusData.pending} />
                         )}
                     </Space>
+                }
+                extra={
+                    statusData?.pending > 0 && (
+                        <Popconfirm
+                            title="¿Purgar todos los jobs pendientes?"
+                            description={`Se eliminarán ${statusData.pending} job(s) de la cola. El job en ejecución no se verá afectado.`}
+                            onConfirm={handlePurgeQueue}
+                            okText="Purgar"
+                            okButtonProps={{ danger: true }}
+                            cancelText="Cancelar"
+                        >
+                            <Button
+                                size="small"
+                                danger
+                                icon={<DeleteOutlined />}
+                                loading={purging}
+                            >
+                                Purgar cola
+                            </Button>
+                        </Popconfirm>
+                    )
                 }
                 size="small"
                 style={{ marginBottom: 16 }}
@@ -576,6 +661,30 @@ const QueueTab = ({ statusData, stats, refreshing, onRefresh }) => {
                                 dataIndex: 'waitingMs',
                                 key: 'waitingMs',
                                 render: formatDuration,
+                            },
+                            {
+                                title: '',
+                                key: 'actions',
+                                width: 80,
+                                align: 'center',
+                                render: (_, row) => (
+                                    <Popconfirm
+                                        title="¿Cancelar este job?"
+                                        description="El job será eliminado de la cola inmediatamente."
+                                        onConfirm={() => handleCancelJob(row.id)}
+                                        okText="Cancelar job"
+                                        okButtonProps={{ danger: true }}
+                                        cancelText="No"
+                                    >
+                                        <Button
+                                            size="small"
+                                            danger
+                                            icon={<StopOutlined />}
+                                            loading={cancellingId === row.id}
+                                            disabled={purging || (cancellingId != null && cancellingId !== row.id)}
+                                        />
+                                    </Popconfirm>
+                                ),
                             },
                         ]}
                     />
