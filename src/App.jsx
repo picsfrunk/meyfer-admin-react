@@ -10,7 +10,7 @@ import Config from './pages/Config';
 import Catalog from './pages/Catalog';
 import Orders from './pages/Orders/Orders.jsx';
 import Products from './pages/Products/Products.jsx';
-import ProcesosPage from './pages/ProcesosPage';
+import JobsPage from './pages/JobsPage.jsx';
 import CustomersPage from './pages/CustomersPage';
 
 // Configuración de tema para Ant Design
@@ -82,7 +82,7 @@ function App() {
                             element={
                                 <ProtectedRoute>
                                     <DashboardLayout>
-                                        <ProcesosPage />
+                                        <JobsPage />
                                     </DashboardLayout>
                                 </ProtectedRoute>
                             }

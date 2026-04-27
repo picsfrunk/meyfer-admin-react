@@ -1079,7 +1079,7 @@ const PriceCheckTab = () => {
 // MAIN PAGE
 // ─────────────────────────────────────────────────────────────────────────────
 
-const ProcesosPage = () => {
+const JobsPage = () => {
     const [statusData, setStatusData] = useState(null);
     const [stats, setStats]           = useState(null);
     const [loading, setLoading]       = useState(true);
@@ -1195,4 +1195,4 @@ const ProcesosPage = () => {
     );
 };
 
-export default ProcesosPage;
+export default JobsPage;
