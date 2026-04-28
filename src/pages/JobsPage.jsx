@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
     Row, Col, Card, Statistic, Tag, Table, Button, Modal,
     Typography, Space, Badge, Tooltip, Divider, Alert, Spin,
-    Descriptions, Empty, message, Tabs, Pagination, Select, Popconfirm,
+    Descriptions, Empty, message, Tabs, Pagination, Select,
 } from 'antd';
 import {
     PlayCircleOutlined,
@@ -21,8 +21,7 @@ import {
     ArrowDownOutlined,
     UnorderedListOutlined,
     WarningOutlined,
-    DeleteOutlined,
-    StopOutlined,
+    StopOutlined
 } from '@ant-design/icons';
 import { scraperAPI } from '../services/scraperAPI';
 import { getApiErrorMessage } from '../utils/apiError';
@@ -74,6 +73,7 @@ const STATUS_CONFIG = {
     running:   { color: 'processing', icon: <SyncOutlined spin />,  label: 'Ejecutando' },
     completed: { color: 'success',    icon: <CheckCircleOutlined />, label: 'Completado' },
     failed:    { color: 'error',      icon: <CloseCircleOutlined />, label: 'Fallido'    },
+    canceled:  { color: 'default',    icon: <StopOutlined />,       label: 'Cancelado'  },
 };
 
 const StatusTag = ({ status }) => {
@@ -339,6 +339,9 @@ const JobDetailModal = ({ job, onClose }) => {
             {!result && ['enqueued', 'running'].includes(job.status) && (
                 <Alert type="info" message="El job aún no produjo resultados." showIcon />
             )}
+            {!result && job.status === 'canceled' && (
+                <Alert type="warning" message="El job fue cancelado antes de producir resultados." showIcon />
+            )}
         </Modal>
     );
 };
@@ -460,12 +463,12 @@ const PriceCheckDetailModal = ({ id, onClose }) => {
 
                     {data.newIds?.length > 0 && (
                         <Alert type="info" style={{ marginTop: 12 }} showIcon
-                            message={`${data.newIds.length} producto${data.newIds.length !== 1 ? 's' : ''} nuevo${data.newIds.length !== 1 ? 's' : ''} detectado${data.newIds.length !== 1 ? 's' : ''} en Odoo`}
+                               message={`${data.newIds.length} producto${data.newIds.length !== 1 ? 's' : ''} nuevo${data.newIds.length !== 1 ? 's' : ''} detectado${data.newIds.length !== 1 ? 's' : ''} en Odoo`}
                         />
                     )}
                     {data.removedIds?.length > 0 && (
                         <Alert type="warning" style={{ marginTop: 12 }} showIcon
-                            message={`${data.removedIds.length} producto${data.removedIds.length !== 1 ? 's' : ''} ausente${data.removedIds.length !== 1 ? 's' : ''} en Odoo pero presentes en DB`}
+                               message={`${data.removedIds.length} producto${data.removedIds.length !== 1 ? 's' : ''} ausente${data.removedIds.length !== 1 ? 's' : ''} en Odoo pero presentes en DB`}
                         />
                     )}
                 </>
@@ -479,50 +482,7 @@ const PriceCheckDetailModal = ({ id, onClose }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const QueueTab = ({ statusData, stats, refreshing, onRefresh }) => {
-    const [elapsed, setElapsed]         = useState(statusData?.running?.elapsedMs ?? 0);
-    const [cancellingId, setCancellingId] = useState(null);
-    const [purging, setPurging]           = useState(false);
-
-    const handleCancelJob = async (jobId) => {
-        setCancellingId(jobId);
-        try {
-            const res = await scraperAPI.cancelJob(jobId);
-            const { status } = res.data;
-            if (status === 'cancelling') {
-                message.info('Job marcado para cancelación graceful. Se detendrá lo antes posible.');
-            } else {
-                message.success('Job eliminado de la cola.');
-            }
-            onRefresh();
-        } catch (err) {
-            const serverMsg = err.response?.data?.message;
-            if (err.response?.status === 400) {
-                message.warning(serverMsg || 'No se puede cancelar un job que ya terminó.');
-            } else if (err.response?.status === 404) {
-                message.error('Job no encontrado.');
-            } else {
-                message.error(serverMsg || 'Error al cancelar el job.');
-            }
-        } finally {
-            setCancellingId(null);
-        }
-    };
-
-    const handlePurgeQueue = async () => {
-        setPurging(true);
-        try {
-            const res = await scraperAPI.purgeQueue();
-            const { cancelledCount, message: msg } = res.data;
-            message.success(msg || `${cancelledCount} job(s) eliminado(s) de la cola.`);
-            onRefresh();
-        } catch (err) {
-            message.error(err.response?.data?.message || 'Error al purgar la cola.');
-        } finally {
-            setPurging(false);
-        }
-    };
-
-
+    const [elapsed, setElapsed] = useState(statusData?.running?.elapsedMs ?? 0);
 
     useEffect(() => {
         if (!statusData?.running) return;
@@ -567,25 +527,6 @@ const QueueTab = ({ statusData, stats, refreshing, onRefresh }) => {
                         <Descriptions.Item label="Iniciado">
                             {formatDate(running.startedAt)}
                         </Descriptions.Item>
-                        <Descriptions.Item label="Cancelar" span={2}>
-                            <Popconfirm
-                                title="¿Cancelar el job en ejecución?"
-                                description="Se enviará una señal de cancelación graceful. El job terminará lo antes posible."
-                                onConfirm={() => handleCancelJob(running.id)}
-                                okText="Cancelar job"
-                                okButtonProps={{ danger: true }}
-                                cancelText="No"
-                            >
-                                <Button
-                                    size="small"
-                                    danger
-                                    icon={<StopOutlined />}
-                                    loading={cancellingId === running.id}
-                                >
-                                    Detener
-                                </Button>
-                            </Popconfirm>
-                        </Descriptions.Item>
                     </Descriptions>
                 ) : (
                     <Text type="secondary">No hay ningún job en ejecución.</Text>
@@ -602,27 +543,6 @@ const QueueTab = ({ statusData, stats, refreshing, onRefresh }) => {
                             <Badge count={statusData.pending} />
                         )}
                     </Space>
-                }
-                extra={
-                    statusData?.pending > 0 && (
-                        <Popconfirm
-                            title="¿Purgar todos los jobs pendientes?"
-                            description={`Se eliminarán ${statusData.pending} job(s) de la cola. El job en ejecución no se verá afectado.`}
-                            onConfirm={handlePurgeQueue}
-                            okText="Purgar"
-                            okButtonProps={{ danger: true }}
-                            cancelText="Cancelar"
-                        >
-                            <Button
-                                size="small"
-                                danger
-                                icon={<DeleteOutlined />}
-                                loading={purging}
-                            >
-                                Purgar cola
-                            </Button>
-                        </Popconfirm>
-                    )
                 }
                 size="small"
                 style={{ marginBottom: 16 }}
@@ -661,30 +581,6 @@ const QueueTab = ({ statusData, stats, refreshing, onRefresh }) => {
                                 dataIndex: 'waitingMs',
                                 key: 'waitingMs',
                                 render: formatDuration,
-                            },
-                            {
-                                title: '',
-                                key: 'actions',
-                                width: 80,
-                                align: 'center',
-                                render: (_, row) => (
-                                    <Popconfirm
-                                        title="¿Cancelar este job?"
-                                        description="El job será eliminado de la cola inmediatamente."
-                                        onConfirm={() => handleCancelJob(row.id)}
-                                        okText="Cancelar job"
-                                        okButtonProps={{ danger: true }}
-                                        cancelText="No"
-                                    >
-                                        <Button
-                                            size="small"
-                                            danger
-                                            icon={<StopOutlined />}
-                                            loading={cancellingId === row.id}
-                                            disabled={purging || (cancellingId != null && cancellingId !== row.id)}
-                                        />
-                                    </Popconfirm>
-                                ),
                             },
                         ]}
                     />
@@ -802,8 +698,9 @@ const ProcesosHistoryTab = () => {
             key: 'result',
             render: (_, r) => {
                 const res = r.result;
+                if (r.status === 'canceled') return <Tag icon={<StopOutlined />} color="default">Cancelado</Tag>;
                 if (!res) return <Text type="secondary">—</Text>;
-                if (res.error) return <Text type="danger">Error</Text>;
+                if (res.error) return <Tag color="error" icon={<CloseCircleOutlined />}>Error</Tag>;
                 if (r.type === 'priceCheck') {
                     return (
                         <Tooltip title={`${res.summary?.new ?? 0} nuevos · ${res.summary?.removed ?? 0} eliminados`}>
@@ -846,6 +743,7 @@ const ProcesosHistoryTab = () => {
                         { value: 'running',   label: 'Ejecutando' },
                         { value: 'completed', label: 'Completado' },
                         { value: 'failed',    label: 'Fallido' },
+                        { value: 'canceled',  label: 'Cancelado' },
                     ]}
                 />
                 <Select
