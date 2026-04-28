@@ -27,8 +27,10 @@ import {
     FileExcelOutlined,
     AppstoreOutlined,
     ExclamationCircleOutlined,
+    WarningOutlined,
 } from '@ant-design/icons';
 import { productsAPI, configAPI } from '../services/api';
+import { scraperAPI } from '../services/scraperAPI';
 import { getApiErrorMessage } from '../utils/apiError';
 
 const { Title, Text } = Typography;
@@ -62,7 +64,6 @@ const Catalog = () => {
                 message.error('Formato inválido al cargar la fecha de actualización');
                 return;
             }
-
             setLastUpdate(response.data.lastUpdate);
         } catch (error) {
             console.error('Error loading last update:', error);
@@ -105,7 +106,6 @@ const Catalog = () => {
     };
 
     // ── Sincronización Completa ────────────────────────────────────────────────────
-
     const handleScrapeComplete = () => {
         Modal.confirm({
             title: '¿Ejecutar sincronización completa?',
@@ -122,12 +122,13 @@ const Catalog = () => {
             onOk: async () => {
                 setLoading(true);
                 try {
-                    const response = await productsAPI.scrape({
-                        scraperType: 'categoryScraper',
-                        pageDelay: 800,
-                        categoryDelay: 800,
-                    });
-                    message.success(`Sincronización completa iniciada — Job ID: ${response.data.result?.jobId ?? '—'}`);
+                    const response = await scraperAPI.triggerScraper('categoryScraper', {});
+                    const queued = response.data.status === 'queued';
+                    message.success(
+                        queued
+                            ? `Sincronización completa encolada — Posición: ${response.data.position}`
+                            : 'Sincronización completa iniciada'
+                    );
                 } catch (error) {
                     message.error(getApiErrorMessage(error, 'Error al iniciar la sincronización completa'));
                 } finally {
@@ -138,7 +139,6 @@ const Catalog = () => {
     };
 
     // ── Sincronización por Categorías ──────────────────────────────────────────────
-
     const handleCategoryChange = (categoryIds) => {
         setSelectedCategories(categoryIds);
         setSelectAll(categoryIds.length === categories.length);
@@ -191,15 +191,22 @@ const Catalog = () => {
                 setLoading(true);
                 try {
                     const payload = isAll
-                        ? { scraperType: 'categoryScraper' }
-                        : { scraperType: 'categoryScraper', categoryIds: selectedCategories };
+                        ? {}
+                        : { categoryIds: selectedCategories };
 
-                    const response = await productsAPI.scrape(payload);
+                    const response = await scraperAPI.triggerScraper('categoryScraper', payload);
+                    const queued = response.data.status === 'queued';
+
                     message.success(
                         isAll
-                            ? `Sincronización completa iniciada — Job ID: ${response.data.result?.jobId ?? '—'}`
-                            : `Sincronización iniciada para ${selectedCategories.length} categorías — Job ID: ${response.data.result?.jobId ?? '—'}`
+                            ? (queued
+                                ? `Sincronización completa encolada — Posición: ${response.data.position}`
+                                : 'Sincronización completa iniciada')
+                            : (queued
+                                ? `${selectedCategories.length} categorías encoladas — Posición: ${response.data.position}`
+                                : `Sincronización iniciada para ${selectedCategories.length} categorías`)
                     );
+
                     setSelectedCategories([]);
                     setSelectAll(false);
                 } catch (error) {
@@ -212,7 +219,6 @@ const Catalog = () => {
     };
 
     // ── Sincronización Manual ──────────────────────────────────────────────────────
-
     const handleScrape = (values) => {
         Modal.confirm({
             title: '¿Ejecutar sincronización manual?',
@@ -229,8 +235,15 @@ const Catalog = () => {
             onOk: async () => {
                 setLoading(true);
                 try {
-                    const response = await productsAPI.scrape(values);
-                    message.success(`Sincronización iniciada — Job ID: ${response.data.result?.jobId ?? '—'}`);
+                    const response = await scraperAPI.triggerScraper('categoryScraper', {
+                        categoryIds: [values.categoryIds]
+                    });
+                    const queued = response.data.status === 'queued';
+                    message.success(
+                        queued
+                            ? `Sincronización encolada — Posición: ${response.data.position}`
+                            : 'Sincronización iniciada'
+                    );
                     form.resetFields();
                 } catch (error) {
                     message.error(getApiErrorMessage(error, 'Error al iniciar la sincronización'));
@@ -242,7 +255,6 @@ const Catalog = () => {
     };
 
     // ── Actualización desde Excel ───────────────────────────────────────────
-
     const handleUpdateCatalog = async () => {
         setUpdateLoading(true);
         try {
@@ -256,9 +268,8 @@ const Catalog = () => {
     };
 
     // ── Render ──────────────────────────────────────────────────────────────
-
     const selectedCategoriesData = categories.filter(c => selectedCategories.includes(c.category_id));
-    const totalSelectedProducts  = selectedCategoriesData.reduce((sum, c) => sum + c.product_count, 0);
+    const totalSelectedProducts = selectedCategoriesData.reduce((sum, c) => sum + c.product_count, 0);
 
     return (
         <div>
@@ -528,6 +539,7 @@ const Catalog = () => {
                                 message="Ejecuta sincronización para una categoría específica."
                                 type="warning"
                                 showIcon
+                                icon={<WarningOutlined />}
                                 style={{ fontSize: '12px' }}
                             />
                             <Form
@@ -542,14 +554,14 @@ const Catalog = () => {
                                     rules={[{ required: true }]}
                                     style={{ marginBottom: 12 }}
                                 >
-                                    <Select size="middle">
+                                    <Select size="middle" disabled>
                                         <Option value="categoryScraper">Sincronización de Categorías</Option>
                                     </Select>
                                 </Form.Item>
                                 <Form.Item
                                     label={<Text style={{ fontSize: '12px' }}>ID de Categoría</Text>}
                                     name="categoryIds"
-                                    rules={[{ required: true }]}
+                                    rules={[{ required: true, message: 'Ingrese el ID de la categoría' }]}
                                     style={{ marginBottom: 12 }}
                                 >
                                     <InputNumber style={{ width: '100%' }} min={1} placeholder="Ej: 8" />
@@ -574,9 +586,10 @@ const Catalog = () => {
                     <Space direction="vertical" style={{ width: '100%' }}>
                         <Alert
                             message="Sincronización Individual"
-                            description="Ejecuta una sincronización para una categoría específica o tipo particular de contenido."
+                            description="Ejecuta una sincronización para una categoría específica."
                             type="warning"
                             showIcon
+                            icon={<WarningOutlined />}
                             size="small"
                         />
                         <Form
@@ -590,7 +603,7 @@ const Catalog = () => {
                                 name="scraperType"
                                 rules={[{ required: true, message: 'Seleccione el tipo de sincronización' }]}
                             >
-                                <Select placeholder="Seleccione el tipo de sincronización">
+                                <Select placeholder="Seleccione el tipo de sincronización" disabled>
                                     <Option value="categoryScraper">Sincronización de Categorías</Option>
                                 </Select>
                             </Form.Item>
