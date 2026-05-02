@@ -95,6 +95,13 @@ const normalizeCustomerAddress = (address = {}) => ({
     partido: address.partido || '',
 });
 
+const normalizeDelivery = (delivery = {}) => ({
+    address: normalizeCustomerAddress(delivery.address || {}),
+    contactName: delivery.contactName || '',
+    contactPhone: delivery.contactPhone || '',
+    schedule: delivery.schedule || '',
+});
+
 const normalizeCustomerInfo = (customerInfo = {}) => ({
     name: customerInfo.name || customerInfo.cliente || '',
     cliente: customerInfo.cliente || customerInfo.name || '',
@@ -117,6 +124,7 @@ export const normalizeOrderFromApi = (order = {}) => {
         __v: Number(order.__v ?? 0),
         orderId: order.orderId || '',
         customerInfo: normalizeCustomerInfo(customerInfo),
+        delivery: normalizeDelivery(order.delivery || {}),
         extraCharge: Number(order.extraCharge ?? 0),
         total: Number(order.total ?? 0),
         totalItems: Number(order.totalItems ?? cartItems.reduce((sum, item) => sum + Number(item?.qty ?? 0), 0)),
