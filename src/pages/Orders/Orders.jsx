@@ -15,8 +15,7 @@ import {
 
 import OrdersFilter from './OrdersFilter';
 import OrdersTable from './OrdersTable';
-import EditOrderModal from './EditOrderModal';
-import OrderDetailModal from './OrderDetailModal';
+import OrderModal from './OrderModal';
 
 const { Title } = Typography;
 
@@ -30,8 +29,7 @@ const Orders = () => {
     const [deletedStatusKey, setDeletedStatusKey] = useState('');
     const [statusColors, setStatusColors] = useState({ todos: 'geekblue' });
 
-    const [modalVisible, setModalVisible] = useState(false);
-    const [detailModalVisible, setDetailModalVisible] = useState(false);
+    const [orderModalVisible, setOrderModalVisible] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState(null);
 
     const [selectedStatuses, setSelectedStatuses] = useState([]);
@@ -128,7 +126,12 @@ const Orders = () => {
                 return;
             }
 
-            setOrders(normalizeOrdersFromApi(data));
+            const normalizedOrders = normalizeOrdersFromApi(data);
+            setOrders(normalizedOrders);
+            setSelectedOrder((current) => {
+                if (!current?.orderId) return current;
+                return normalizedOrders.find((order) => order.orderId === current.orderId) || current;
+            });
         } catch (error) {
             console.error('Error loading orders:', error);
             message.error(getApiErrorMessage(error, 'Error al cargar los pedidos'));
@@ -136,6 +139,8 @@ const Orders = () => {
             setLoading(false);
         }
     };
+
+    const refreshOrders = () => loadOrders(selectedStatuses, showDeleted, allSelected, statusDefinitions, deletedStatusKey);
 
     const handleStatusToggle = async (statusKey) => {
         if (statusKey === 'todos') {
@@ -162,7 +167,7 @@ const Orders = () => {
         try {
             await ordersAPI.updateStatus(orderId, newStatus);
             message.success('Estado actualizado correctamente');
-            await loadOrders(selectedStatuses, showDeleted, allSelected);
+            await refreshOrders();
         } catch (error) {
             message.error(getApiErrorMessage(error, 'Error al actualizar el estado'));
             console.error(error);
@@ -187,7 +192,7 @@ const Orders = () => {
                 setSelectedOrder(normalizeOrderFromApi(updatedOrderPayload));
             }
             message.success('Valores del pedido actualizados correctamente');
-            await loadOrders(selectedStatuses, showDeleted, allSelected);
+            await refreshOrders();
             return updatedOrderPayload;
         } catch (error) {
             message.error(getApiErrorMessage(error, 'Error al actualizar valores del pedido'));
@@ -217,16 +222,18 @@ const Orders = () => {
             }
 
             message.success('Pedido eliminado correctamente');
-            await loadOrders(selectedStatuses, showDeleted, allSelected);
+            setOrderModalVisible(false);
+            setSelectedOrder(null);
+            await refreshOrders();
         } catch (error) {
             message.error(getApiErrorMessage(error, 'Error al eliminar el pedido'));
             console.error(error);
         }
     };
 
-    const handleEdit = (order) => {
+    const handleOpenOrder = (order) => {
         setSelectedOrder(order);
-        setModalVisible(true);
+        setOrderModalVisible(true);
     };
 
     useEffect(() => {
@@ -246,7 +253,7 @@ const Orders = () => {
                 <Space>
                     <Button
                         icon={<ReloadOutlined />}
-                        onClick={() => loadOrders(selectedStatuses, showDeleted, allSelected, statusDefinitions, deletedStatusKey)}
+                        onClick={refreshOrders}
                         loading={loading || statusesLoading}
                     >
                         Actualizar
@@ -270,29 +277,21 @@ const Orders = () => {
                     loading={loading || statusesLoading}
                     statusColors={statusColors}
                     statusLabels={statusLabels}
-                    onShowDetail={(o) => { setSelectedOrder(o); setDetailModalVisible(true); }}
-                    onEdit={handleEdit}
+                    onOpenOrder={handleOpenOrder}
                     onDelete={handleDelete}
                 />
             </Card>
 
-            <EditOrderModal
-                visible={modalVisible}
-                order={selectedOrder}
-                orderStatuses={statusDefinitions}
-                onClose={() => setModalVisible(false)}
-                onUpdated={() => loadOrders(selectedStatuses, showDeleted, allSelected, statusDefinitions, deletedStatusKey)}
-            />
-
-            <OrderDetailModal
-                visible={detailModalVisible}
+            <OrderModal
+                visible={orderModalVisible}
                 order={selectedOrder}
                 statusColors={statusColors}
                 statusLabels={statusLabels}
                 orderStatuses={statusDefinitions}
                 defaultStatus={defaultStatusKey}
                 deletedStatus={deletedStatusKey}
-                onClose={() => setDetailModalVisible(false)}
+                onClose={() => setOrderModalVisible(false)}
+                onUpdated={refreshOrders}
                 onQuickStatusUpdate={handleStatusUpdate}
                 onResendEmail={handleResendEmail}
                 onPricingUpdate={handlePricingUpdate}
