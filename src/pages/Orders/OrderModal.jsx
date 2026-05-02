@@ -73,6 +73,19 @@ const formatAddress = (address = {}) => ([
     address.partido,
 ].filter(Boolean).join(', '));
 
+const tabLabel = (label) => (
+    <span style={{
+        display: 'inline-block',
+        padding: '6px 12px',
+        border: '1px solid #d9d9d9',
+        borderRadius: 8,
+        background: '#fafafa',
+        fontWeight: 500,
+    }}>
+        {label}
+    </span>
+);
+
 const OrderModal = ({
     visible,
     order,
@@ -374,7 +387,7 @@ const OrderModal = ({
     const tabItems = [
         {
             key: 'summary',
-            label: 'Detalle',
+            label: tabLabel('Detalle'),
             children: (
                 <Descriptions column={2} bordered size="small">
                     <Descriptions.Item label="ID Pedido" span={2}>{order.orderId}</Descriptions.Item>
@@ -402,7 +415,7 @@ const OrderModal = ({
         },
         {
             key: 'delivery',
-            label: 'Entrega',
+            label: tabLabel('Entrega'),
             children: (
                 <Form form={deliveryForm} layout="vertical" onFinish={handleDeliverySave}>
                     <Divider orientation="left">Dirección de entrega</Divider>
@@ -471,7 +484,7 @@ const OrderModal = ({
         },
         {
             key: 'pricing',
-            label: 'Productos',
+            label: tabLabel('Productos'),
             children: (
                 <div>
                     <Card size="small" style={{ marginBottom: 16 }}>
@@ -548,7 +561,7 @@ const OrderModal = ({
         },
         {
             key: 'actions',
-            label: 'Acciones',
+            label: tabLabel('Acciones'),
             children: (
                 <Space direction="vertical" size="large" style={{ width: '100%' }}>
                     <Card size="small">
