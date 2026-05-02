@@ -1,15 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Space, Tag, Popconfirm, Card, Typography } from 'antd';
-import { EyeOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { EyeOutlined, DeleteOutlined } from '@ant-design/icons';
 
 const { Text } = Typography;
 
-const OrdersTable = ({ orders, loading, statusColors, statusLabels = {}, onShowDetail, onEdit, onDelete }) => {
+const OrdersTable = ({ orders, loading, statusColors, statusLabels = {}, onOpenOrder, onDelete }) => {
     const [isMobile, setIsMobile] = useState(false);
 
     const formatCurrency = (value) => {
         const numericValue = Number(value);
         return Number.isFinite(numericValue) ? `$${numericValue.toLocaleString('es-AR')}` : '$0';
+    };
+
+    const openOrder = (order) => {
+        if (typeof onOpenOrder === 'function') {
+            onOpenOrder(order);
+        }
     };
 
     useEffect(() => {
@@ -23,7 +29,6 @@ const OrdersTable = ({ orders, loading, statusColors, statusLabels = {}, onShowD
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
-    // Vista de tabla para desktop
     const columns = [
         {
             title: 'ID Pedido',
@@ -35,7 +40,7 @@ const OrdersTable = ({ orders, loading, statusColors, statusLabels = {}, onShowD
             render: (orderId, record) => (
                 <span
                     style={{ cursor: 'pointer', color: '#1677ff' }}
-                    onClick={() => onShowDetail(record)}
+                    onClick={() => openOrder(record)}
                 >
                     {orderId}
                 </span>
@@ -47,7 +52,7 @@ const OrdersTable = ({ orders, loading, statusColors, statusLabels = {}, onShowD
             render: (_, record) => (
                 <div
                     style={{ cursor: 'pointer' }}
-                    onClick={() => onShowDetail(record)}
+                    onClick={() => openOrder(record)}
                 >
                     <div>{record.customerInfo?.name || 'Sin cliente'}</div>
                     <div style={{ fontSize: '12px', color: '#666' }}>
@@ -88,17 +93,11 @@ const OrdersTable = ({ orders, loading, statusColors, statusLabels = {}, onShowD
                         size="small"
                         onClick={(e) => {
                             e.stopPropagation();
-                            onShowDetail(record);
+                            openOrder(record);
                         }}
-                    />
-                    <Button
-                        icon={<EditOutlined />}
-                        size="small"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onEdit(record);
-                        }}
-                    />
+                    >
+                        Ver / editar
+                    </Button>
                     <Popconfirm
                         title="¿Está seguro de eliminar este pedido?"
                         onConfirm={() => onDelete(record)}
@@ -114,17 +113,16 @@ const OrdersTable = ({ orders, loading, statusColors, statusLabels = {}, onShowD
                     </Popconfirm>
                 </Space>
             ),
-            width: 120,
+            width: 180,
         },
     ];
 
-    // Vista de cards para móvil
     const MobileOrderCard = ({ order }) => (
         <Card
             size="small"
             style={{ marginBottom: 12, cursor: 'pointer' }}
             styles={{ body: { padding: '12px' } }}
-            onClick={() => onShowDetail(order)}
+            onClick={() => openOrder(order)}
         >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                 <div style={{ flex: 1 }}>
@@ -155,19 +153,11 @@ const OrdersTable = ({ orders, loading, statusColors, statusLabels = {}, onShowD
                     size="small"
                     onClick={(e) => {
                         e.stopPropagation();
-                        onShowDetail(order);
+                        openOrder(order);
                     }}
                 >
-                    Ver
+                    Ver / editar
                 </Button>
-                <Button
-                    icon={<EditOutlined />}
-                    size="small"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onEdit(order);
-                    }}
-                />
                 <Popconfirm
                     title="¿Eliminar pedido?"
                     onConfirm={() => onDelete(order)}
