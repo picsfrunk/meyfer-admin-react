@@ -17,6 +17,8 @@ import {
     Divider,
     Row,
     Col,
+    Card,
+    Statistic,
 } from 'antd';
 import {
     MailOutlined,
@@ -157,6 +159,14 @@ const OrderModal = ({
             __rowKey: buildEditableRowKey(item?.productCartItem?.product_id, index + 1),
         }))
         : []);
+
+    const productsSubtotal = tableItems.reduce((sum, item) => (
+        sum + Number(item?.qty ?? 0) * Number(item?.priceAtPurchase ?? item?.productCartItem?.list_price ?? 0)
+    ), 0);
+    const visibleExtraCharge = editPricingMode ? Number(extraCharge ?? 0) : Number(order.extraCharge ?? 0);
+    const visibleTotal = editPricingMode
+        ? Number((productsSubtotal + visibleExtraCharge).toFixed(2))
+        : Number(order.total ?? 0);
 
     const handleStatusChange = async () => {
         if (!selectedStatus || selectedStatus === order.status || !onQuickStatusUpdate) return;
@@ -334,6 +344,33 @@ const OrderModal = ({
             : []),
     ];
 
+    const SummaryHeader = (
+        <Card size="small" style={{ marginBottom: 16 }} styles={{ body: { padding: 12 } }}>
+            <Row gutter={[12, 12]} align="middle">
+                <Col xs={24} md={8}>
+                    <Space direction="vertical" size={0}>
+                        <Text type="secondary">Pedido</Text>
+                        <Text strong copyable>{order.orderId || 'Sin ID'}</Text>
+                    </Space>
+                </Col>
+                <Col xs={12} md={4}>
+                    <Statistic title="Items" value={order.totalItems || 0} />
+                </Col>
+                <Col xs={12} md={4}>
+                    <Statistic title="Recargo" value={formatCurrency(visibleExtraCharge)} />
+                </Col>
+                <Col xs={24} md={5}>
+                    <Statistic title={editPricingMode ? 'Total estimado' : 'Total'} value={formatCurrency(visibleTotal)} />
+                </Col>
+                <Col xs={24} md={3}>
+                    <Tag color={statusColors[order.status] || 'default'} style={{ margin: 0 }}>
+                        {currentStatusLabel}
+                    </Tag>
+                </Col>
+            </Row>
+        </Card>
+    );
+
     const tabItems = [
         {
             key: 'summary',
@@ -434,26 +471,35 @@ const OrderModal = ({
         },
         {
             key: 'pricing',
-            label: 'Productos y precios',
+            label: 'Productos',
             children: (
                 <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, gap: 12, flexWrap: 'wrap' }}>
-                        <Space align="center">
-                            <Text strong>Editar productos y precios</Text>
-                            <Switch checked={editPricingMode} onChange={setEditPricingMode} />
-                        </Space>
-                        <Space>
-                            <Text strong>Total actual:</Text>
-                            <Text>{formatCurrency(order.total)}</Text>
-                        </Space>
-                    </div>
+                    <Card size="small" style={{ marginBottom: 16 }}>
+                        <Row gutter={[12, 12]} align="middle">
+                            <Col xs={24} md={8}>
+                                <Space align="center">
+                                    <Text strong>Editar productos y precios</Text>
+                                    <Switch checked={editPricingMode} onChange={setEditPricingMode} />
+                                </Space>
+                            </Col>
+                            <Col xs={12} md={5}>
+                                <Statistic title="Subtotal productos" value={formatCurrency(productsSubtotal)} />
+                            </Col>
+                            <Col xs={12} md={5}>
+                                <Statistic title="Recargo" value={formatCurrency(visibleExtraCharge)} />
+                            </Col>
+                            <Col xs={24} md={6}>
+                                <Statistic title={editPricingMode ? 'Total estimado' : 'Total'} value={formatCurrency(visibleTotal)} />
+                            </Col>
+                        </Row>
+                    </Card>
 
                     {editPricingMode ? (
                         <Space wrap style={{ marginBottom: 16 }}>
                             <Select
                                 showSearch
                                 placeholder="Agregar por código o descripción"
-                                style={{ minWidth: 320 }}
+                                style={{ minWidth: 260 }}
                                 filterOption={false}
                                 options={productOptions}
                                 value={selectedProductToAdd?.product_id}
@@ -483,6 +529,7 @@ const OrderModal = ({
                         rowKey="__rowKey"
                         pagination={false}
                         columns={pricingColumns}
+                        scroll={{ x: 720 }}
                     />
 
                     {editPricingMode ? (
@@ -501,10 +548,10 @@ const OrderModal = ({
         },
         {
             key: 'actions',
-            label: 'Estado y acciones',
+            label: 'Acciones',
             children: (
                 <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                    <div>
+                    <Card size="small">
                         <Title level={5}>Cambiar estado</Title>
                         <Space wrap>
                             <Select
@@ -523,8 +570,8 @@ const OrderModal = ({
                                 Actualizar estado
                             </Button>
                         </Space>
-                    </div>
-                    <div>
+                    </Card>
+                    <Card size="small">
                         <Title level={5}>Emails</Title>
                         <Button
                             icon={<MailOutlined />}
@@ -532,7 +579,7 @@ const OrderModal = ({
                         >
                             Reenviar email de confirmación
                         </Button>
-                    </div>
+                    </Card>
                 </Space>
             ),
         },
@@ -544,10 +591,19 @@ const OrderModal = ({
             open={visible}
             onCancel={onClose}
             footer={null}
-            width={920}
+            width={960}
             destroyOnClose
+            styles={{ body: { paddingTop: 12 } }}
         >
-            <Tabs defaultActiveKey="summary" items={tabItems} />
+            {SummaryHeader}
+            <Tabs
+                defaultActiveKey="summary"
+                items={tabItems}
+                size="large"
+                tabBarGutter={8}
+                moreIcon={null}
+                style={{ overflowX: 'auto' }}
+            />
         </Modal>
     );
 };
