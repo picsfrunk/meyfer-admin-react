@@ -37,8 +37,7 @@ import {
     normalizeStatusKey,
 } from '../models/orderModel';
 import OrdersTable from './Orders/OrdersTable';
-import OrderDetailModal from './Orders/OrderDetailModal';
-import EditOrderModal from './Orders/EditOrderModal';
+import OrderModal from './Orders/OrderModal';
 
 const { Title, Text } = Typography;
 
@@ -141,22 +140,17 @@ const CustomersPage = () => {
     const [searchText, setSearchText] = useState('');
     const [isMobile, setIsMobile] = useState(false);
 
-    // Modal state
     const [modalVisible, setModalVisible] = useState(false);
     const [editingCustomer, setEditingCustomer] = useState(null);
     const [saving, setSaving] = useState(false);
+    const [successAlert, setSuccessAlert] = useState(null);
 
-    // Success alert after create/regenerate
-    const [successAlert, setSuccessAlert] = useState(null); // { code: string, type: 'create' | 'regenerate' }
-
-    // Orders modal state
     const [ordersModalVisible, setOrdersModalVisible] = useState(false);
     const [customerOrders, setCustomerOrders] = useState([]);
     const [ordersLoading, setOrdersLoading] = useState(false);
     const [selectedCustomerForOrders, setSelectedCustomerForOrders] = useState(null);
     const [selectedOrder, setSelectedOrder] = useState(null);
-    const [detailModalVisible, setDetailModalVisible] = useState(false);
-    const [editModalVisible, setEditModalVisible] = useState(false);
+    const [orderModalVisible, setOrderModalVisible] = useState(false);
     const [statusColors, setStatusColors] = useState({});
     const [statusLabels, setStatusLabels] = useState({});
     const [statusDefinitions, setStatusDefinitions] = useState([]);
@@ -213,12 +207,18 @@ const CustomersPage = () => {
         }
     };
 
-    const loadCustomerOrders = async (customer) => {
+    const loadCustomerOrders = async (customer = selectedCustomerForOrders) => {
+        if (!customer?.customerCode) return;
+
         setOrdersLoading(true);
-        setCustomerOrders([]);
         try {
             const { data } = await ordersAPI.getByCustomer(customer.customerCode);
-            setCustomerOrders(Array.isArray(data) ? normalizeOrdersFromApi(data) : []);
+            const normalizedOrders = Array.isArray(data) ? normalizeOrdersFromApi(data) : [];
+            setCustomerOrders(normalizedOrders);
+            setSelectedOrder((current) => {
+                if (!current?.orderId) return current;
+                return normalizedOrders.find((order) => order.orderId === current.orderId) || current;
+            });
         } catch (err) {
             message.error('Error al cargar los pedidos del cliente');
             console.error(err);
@@ -232,7 +232,6 @@ const CustomersPage = () => {
         loadOrderStatuses();
     }, []);
 
-    // ── Filtering ──────────────────────────────────────────────────────────
     const filteredCustomers = customers.filter((c) => {
         if (!searchText) return true;
         const lower = searchText.toLowerCase();
@@ -242,7 +241,6 @@ const CustomersPage = () => {
         );
     });
 
-    // ── Modal helpers ──────────────────────────────────────────────────────
     const openCreateModal = () => {
         setEditingCustomer(null);
         form.resetFields();
@@ -271,7 +269,6 @@ const CustomersPage = () => {
         form.resetFields();
     };
 
-    // ── Save (create / update) ─────────────────────────────────────────────
     const handleSave = async () => {
         try {
             const values = await form.validateFields();
@@ -289,14 +286,13 @@ const CustomersPage = () => {
                 setSuccessAlert({ code, type: 'create' });
             }
         } catch (error) {
-            if (error?.errorFields) return; // validation error, stay in modal
+            if (error?.errorFields) return;
             message.error(getApiErrorMessage(error, 'Error al guardar el cliente'));
         } finally {
             setSaving(false);
         }
     };
 
-    // ── Delete ─────────────────────────────────────────────────────────────
     const handleDelete = async (id) => {
         try {
             await customersAPI.delete(id);
@@ -307,7 +303,6 @@ const CustomersPage = () => {
         }
     };
 
-    // ── Regenerate code ────────────────────────────────────────────────────
     const handleRegenerateCode = (customer) => {
         Modal.confirm({
             title: 'Regenerar código',
@@ -328,7 +323,6 @@ const CustomersPage = () => {
         });
     };
 
-    // ── Copy to clipboard ──────────────────────────────────────────────────
     const handleCopyCode = (code) => {
         navigator.clipboard.writeText(code).then(() => {
             message.success('Código copiado');
@@ -337,7 +331,6 @@ const CustomersPage = () => {
         });
     };
 
-    // ── Order action handlers (used inside the orders modal) ───────────────
     const handleDeleteOrder = async (order) => {
         const backendId = order?._id;
         const publicOrderId = order?.orderId;
@@ -355,6 +348,8 @@ const CustomersPage = () => {
                 throw new Error('No se encontró un identificador válido para eliminar el pedido');
             }
             message.success('Pedido eliminado correctamente');
+            setOrderModalVisible(false);
+            setSelectedOrder(null);
             await loadCustomerOrders(selectedCustomerForOrders);
         } catch (error) {
             message.error(getApiErrorMessage(error, 'Error al eliminar el pedido'));
@@ -400,7 +395,19 @@ const CustomersPage = () => {
         }
     };
 
-    // ── Desktop table columns ──────────────────────────────────────────────
+    const handleOpenCustomerOrders = (customer) => {
+        setSelectedCustomerForOrders(customer);
+        setSelectedOrder(null);
+        setOrderModalVisible(false);
+        setOrdersModalVisible(true);
+        loadCustomerOrders(customer);
+    };
+
+    const handleOpenOrder = (order) => {
+        setSelectedOrder(order);
+        setOrderModalVisible(true);
+    };
+
     const columns = [
         {
             title: 'Código',
@@ -448,11 +455,7 @@ const CustomersPage = () => {
                     <Button
                         icon={<FileTextOutlined />}
                         size="small"
-                        onClick={() => {
-                            setSelectedCustomerForOrders(record);
-                            loadCustomerOrders(record);
-                            setOrdersModalVisible(true);
-                        }}
+                        onClick={() => handleOpenCustomerOrders(record)}
                     >
                         Ver Pedidos
                     </Button>
@@ -474,7 +477,6 @@ const CustomersPage = () => {
         },
     ];
 
-    // ── Mobile card per row ────────────────────────────────────────────────
     const MobileCustomerCard = ({ customer }) => (
         <Card
             size="small"
@@ -506,11 +508,7 @@ const CustomersPage = () => {
                 <Button
                     icon={<FileTextOutlined />}
                     size="small"
-                    onClick={() => {
-                        setSelectedCustomerForOrders(customer);
-                        loadCustomerOrders(customer);
-                        setOrdersModalVisible(true);
-                    }}
+                    onClick={() => handleOpenCustomerOrders(customer)}
                 >
                     Ver Pedidos
                 </Button>
@@ -533,7 +531,6 @@ const CustomersPage = () => {
 
     return (
         <div>
-            {/* ── Page header ── */}
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
                 <Title level={2} style={{ margin: 0 }}>Gestión de Clientes</Title>
                 <Space>
@@ -546,7 +543,6 @@ const CustomersPage = () => {
                 </Space>
             </div>
 
-            {/* ── Success alert ── */}
             {successAlert && (
                 <Alert
                     type="success"
@@ -567,7 +563,6 @@ const CustomersPage = () => {
                 />
             )}
 
-            {/* ── Search ── */}
             <Card style={{ marginBottom: 16 }}>
                 <Input
                     ref={searchRef}
@@ -580,7 +575,6 @@ const CustomersPage = () => {
                 />
             </Card>
 
-            {/* ── Table (desktop) / Cards (mobile) ── */}
             {isMobile ? (
                 <div>
                     {loading ? (
@@ -610,7 +604,6 @@ const CustomersPage = () => {
                 />
             )}
 
-            {/* ── Create / Edit modal ── */}
             <Modal
                 title={
                     editingCustomer ? (
@@ -641,7 +634,6 @@ const CustomersPage = () => {
                 <CustomerForm form={form} />
             </Modal>
 
-            {/* ── Orders modal ── */}
             <Modal
                 title={
                     selectedCustomerForOrders
@@ -654,6 +646,7 @@ const CustomersPage = () => {
                     setCustomerOrders([]);
                     setSelectedCustomerForOrders(null);
                     setSelectedOrder(null);
+                    setOrderModalVisible(false);
                 }}
                 footer={null}
                 width={900}
@@ -664,32 +657,24 @@ const CustomersPage = () => {
                     loading={ordersLoading}
                     statusColors={statusColors}
                     statusLabels={statusLabels}
-                    onShowDetail={(o) => { setSelectedOrder(o); setDetailModalVisible(true); }}
-                    onEdit={(o) => { setSelectedOrder(o); setEditModalVisible(true); }}
+                    onOpenOrder={handleOpenOrder}
                     onDelete={handleDeleteOrder}
                 />
             </Modal>
 
-            <OrderDetailModal
-                visible={detailModalVisible}
+            <OrderModal
+                visible={orderModalVisible}
                 order={selectedOrder}
                 statusColors={statusColors}
                 statusLabels={statusLabels}
                 orderStatuses={statusDefinitions}
                 defaultStatus={defaultStatusKey}
                 deletedStatus={deletedStatusKey}
-                onClose={() => setDetailModalVisible(false)}
+                onClose={() => setOrderModalVisible(false)}
+                onUpdated={() => loadCustomerOrders(selectedCustomerForOrders)}
                 onQuickStatusUpdate={handleStatusUpdate}
                 onResendEmail={handleResendEmail}
                 onPricingUpdate={handlePricingUpdate}
-            />
-
-            <EditOrderModal
-                visible={editModalVisible}
-                order={selectedOrder}
-                orderStatuses={statusDefinitions}
-                onClose={() => setEditModalVisible(false)}
-                onUpdated={() => loadCustomerOrders(selectedCustomerForOrders)}
             />
         </div>
     );
