@@ -72,6 +72,23 @@ const OrdersTable = ({ orders, loading, statusColors, statusLabels = {}, onOpenO
             sorter: (a, b) => Number(a.total || 0) - Number(b.total || 0),
         },
         {
+            title: 'Nota',
+            dataIndex: 'customerNote',
+            key: 'customerNote',
+            width: 220,
+            render: (customerNote, record) => (
+                <Text
+                    type={customerNote ? undefined : 'secondary'}
+                    ellipsis={{ tooltip: customerNote || 'Sin nota' }}
+                    style={{ maxWidth: 220, cursor: 'pointer' }}
+                    onClick={() => openOrder(record)}
+                >
+                    {customerNote || 'Sin nota'}
+                </Text>
+            ),
+            sorter: (a, b) => (a.customerNote || '').localeCompare(b.customerNote || ''),
+        },
+        {
             title: 'Estado',
             dataIndex: 'status',
             key: 'status',
@@ -144,6 +161,19 @@ const OrdersTable = ({ orders, loading, statusColors, statusLabels = {}, onOpenO
                 </Text>
                 <Text type="secondary" style={{ fontSize: '11px' }}>
                     {order.customerInfo?.email || 'Sin email'}
+                </Text>
+            </div>
+
+            <div style={{ marginBottom: 8 }}>
+                <Text type="secondary" style={{ fontSize: '11px', display: 'block' }}>
+                    Nota
+                </Text>
+                <Text
+                    type={order.customerNote ? undefined : 'secondary'}
+                    style={{ fontSize: '12px', display: 'block' }}
+                    ellipsis={{ tooltip: order.customerNote || 'Sin nota' }}
+                >
+                    {order.customerNote || 'Sin nota'}
                 </Text>
             </div>
 

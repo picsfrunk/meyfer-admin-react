@@ -118,11 +118,13 @@ const normalizeCustomerInfo = (customerInfo = {}) => ({
 export const normalizeOrderFromApi = (order = {}) => {
     const customerInfo = order.customerInfo || {};
     const cartItems = Array.isArray(order.cartItems) ? order.cartItems : [];
+    const customerNote = typeof order.customerNote === 'string' ? order.customerNote : '';
 
     return {
         _id: order._id || '',
         __v: Number(order.__v ?? 0),
         orderId: order.orderId || '',
+        customerNote,
         customerInfo: normalizeCustomerInfo(customerInfo),
         delivery: normalizeDelivery(order.delivery || {}),
         extraCharge: Number(order.extraCharge ?? 0),

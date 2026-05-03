@@ -406,6 +406,7 @@ const OrderModal = ({
                     <Descriptions.Item label="Items Totales">{order.totalItems || 0}</Descriptions.Item>
                     <Descriptions.Item label="Recargo">{formatCurrency(order.extraCharge)}</Descriptions.Item>
                     <Descriptions.Item label="Total" span={2}>{formatCurrency(order.total)}</Descriptions.Item>
+                    <Descriptions.Item label="Nota del cliente" span={2}>{order.customerNote || 'Sin nota'}</Descriptions.Item>
                     <Descriptions.Item label="Entrega" span={2}>{formatAddress(delivery.address) || 'Sin dirección'}</Descriptions.Item>
                     <Descriptions.Item label="Contacto entrega">{delivery.contactName || 'Sin dato'}</Descriptions.Item>
                     <Descriptions.Item label="Teléfono entrega">{delivery.contactPhone || 'Sin dato'}</Descriptions.Item>
