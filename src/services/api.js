@@ -91,6 +91,10 @@ export const ordersAPI = {
     getAll: (url = '/orders') => api.get(url),
     getStatuses: () => api.get('/orders/statuses'),
     getById: (id) => api.get(`/orders/${id}`),
+    getLogs: (orderId) => api.get(`/orders/${orderId}/logs`),
+    createLog: (orderId, data) => api.post(`/orders/${orderId}/logs`, data),
+    updateLog: (orderId, logId, data) => api.patch(`/orders/${orderId}/logs/${logId}`, data),
+    deleteLog: (orderId, logId) => api.delete(`/orders/${orderId}/logs/${logId}`),
     getByCustomer: (customerCode, status = null) => {
         const params = new URLSearchParams();
         params.append('customerCode', customerCode);

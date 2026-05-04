@@ -19,6 +19,8 @@ import {
     Col,
     Card,
     Statistic,
+    Alert,
+    Popconfirm,
 } from 'antd';
 import {
     MailOutlined,
@@ -26,9 +28,12 @@ import {
     DeleteOutlined,
     PlusOutlined,
     SaveOutlined,
+    EditOutlined,
+    CloseOutlined,
 } from '@ant-design/icons';
 import { ordersAPI, productsAPI } from '../../services/api';
 import { getApiErrorMessage } from '../../utils/apiError';
+import { useAuth } from '../../context/AuthContext';
 
 const { Title, Text } = Typography;
 
@@ -73,6 +78,203 @@ const formatAddress = (address = {}) => ([
     address.partido,
 ].filter(Boolean).join(', '));
 
+const normalizeOrderLog = (log = {}) => ({
+    _id: log._id || log.id || '',
+    orderId: log.orderId || '',
+    message: log.message || '',
+    type: log.type || '',
+    createdBy: log.createdBy || '',
+    updatedBy: log.updatedBy || '',
+    metadata: log.metadata || null,
+    createdAt: log.createdAt || null,
+    updatedAt: log.updatedAt || null,
+});
+
+const formatDateTime = (value) => (value
+    ? new Date(value).toLocaleString('es-AR')
+    : 'Sin fecha');
+
+const LOG_TYPE_LABELS = {
+    note: 'Nota manual',
+    status_change: 'Cambio de estado',
+    delivery_change: 'Cambio de entrega',
+    pricing_change: 'Cambio de precios',
+    customer_note_change: 'Cambio de nota cliente',
+    customer_info_change: 'Cambio de cliente',
+    order_deleted: 'Pedido eliminado',
+};
+
+const LOG_TYPE_COLORS = {
+    note: 'blue',
+    status_change: 'purple',
+    delivery_change: 'cyan',
+    pricing_change: 'gold',
+    customer_note_change: 'volcano',
+    customer_info_change: 'geekblue',
+    order_deleted: 'red',
+};
+
+const STATUS_LABEL_FALLBACKS = {
+    pending: 'Pendiente',
+    confirmed: 'Confirmado',
+    processing: 'Procesando',
+    shipped: 'Enviado',
+    delivered: 'Entregado',
+    cancelled: 'Cancelado',
+    deleted: 'Eliminado',
+};
+
+const FIELD_LABELS = {
+    contactName: 'Contacto',
+    contactPhone: 'Teléfono',
+    schedule: 'Horario',
+    customerNote: 'Nota del cliente',
+    name: 'Cliente',
+    cliente: 'Cliente',
+    razonSocial: 'Razón social',
+    cuit: 'CUIT',
+    telefono1: 'Teléfono cliente',
+    email: 'Email',
+    contacto: 'Contacto cliente',
+    horarios: 'Horarios',
+    notas: 'Notas',
+    calle: 'Calle',
+    numero: 'Número',
+    piso: 'Piso',
+    timbre: 'Timbre',
+    entreCalles: 'Entre calles',
+    localidad: 'Localidad',
+    partido: 'Partido',
+};
+
+const getStatusLabel = (status, statusLabels = {}) => (
+    statusLabels[status] || STATUS_LABEL_FALLBACKS[status] || String(status || 'Sin estado')
+);
+
+const getFieldLabel = (key) => FIELD_LABELS[key] || key;
+
+const formatLogValue = (value) => {
+    if (value === null || value === undefined || value === '') return 'Sin dato';
+    if (typeof value === 'number') return Number.isFinite(value) ? value.toLocaleString('es-AR') : String(value);
+    if (typeof value === 'boolean') return value ? 'Sí' : 'No';
+    if (typeof value === 'object') return 'Datos actualizados';
+    return String(value);
+};
+
+const formatLogChange = (label, change) => {
+    if (!change || typeof change !== 'object' || !('from' in change) || !('to' in change)) return null;
+    return `${label}: ${formatLogValue(change.from)} -> ${formatLogValue(change.to)}`;
+};
+
+const flattenObject = (value = {}, prefix = '') => Object.entries(value || {}).reduce((acc, [key, nestedValue]) => {
+    const nextKey = prefix ? `${prefix}.${key}` : key;
+    if (nestedValue && typeof nestedValue === 'object' && !Array.isArray(nestedValue)) {
+        return { ...acc, ...flattenObject(nestedValue, nextKey) };
+    }
+    return { ...acc, [nextKey]: nestedValue };
+}, {});
+
+const buildObjectChangeLines = (from = {}, to = {}) => {
+    const flatFrom = flattenObject(from);
+    const flatTo = flattenObject(to);
+    const keys = [...new Set([...Object.keys(flatFrom), ...Object.keys(flatTo)])];
+
+    return keys
+        .filter((key) => formatLogValue(flatFrom[key]) !== formatLogValue(flatTo[key]))
+        .map((key) => {
+            const fieldKey = key.split('.').pop();
+            return `${getFieldLabel(fieldKey)}: ${formatLogValue(flatFrom[key])} -> ${formatLogValue(flatTo[key])}`;
+        });
+};
+
+const buildDeliveryChangeLines = (metadata = {}) => {
+    const from = metadata.from || {};
+    const to = metadata.to || {};
+    const lines = [];
+
+    const fromAddress = formatAddress(from.address || {});
+    const toAddress = formatAddress(to.address || {});
+    if (fromAddress !== toAddress) {
+        lines.push(`Dirección: ${formatLogValue(fromAddress)} -> ${formatLogValue(toAddress)}`);
+    }
+
+    [
+        ['Contacto', from.contactName, to.contactName],
+        ['Teléfono', from.contactPhone, to.contactPhone],
+        ['Horario', from.schedule, to.schedule],
+    ].forEach(([label, previousValue, nextValue]) => {
+        if (formatLogValue(previousValue) !== formatLogValue(nextValue)) {
+            lines.push(`${label}: ${formatLogValue(previousValue)} -> ${formatLogValue(nextValue)}`);
+        }
+    });
+
+    return lines.length ? lines : buildObjectChangeLines(from, to);
+};
+
+const buildLogMessage = (log, statusLabels = {}) => {
+    if (log.type === 'status_change' && log.metadata?.from && log.metadata?.to) {
+        return `Estado cambiado de ${getStatusLabel(log.metadata.from, statusLabels)} a ${getStatusLabel(log.metadata.to, statusLabels)}`;
+    }
+
+    return log.message || 'Sin mensaje';
+};
+
+const buildMetadataLines = (metadata, type, statusLabels = {}) => {
+    if (!metadata || typeof metadata !== 'object') return [];
+
+    if (type === 'status_change') {
+        if (!metadata.from || !metadata.to) return [];
+        return [`Cambio: ${getStatusLabel(metadata.from, statusLabels)} -> ${getStatusLabel(metadata.to, statusLabels)}`];
+    }
+
+    if (type === 'delivery_change') {
+        return buildDeliveryChangeLines(metadata);
+    }
+
+    if (type === 'pricing_change') {
+        const lines = [];
+        const added = metadata.items?.added || [];
+        const removed = metadata.items?.removed || [];
+        const updated = metadata.items?.updated || [];
+
+        if (added.length) {
+            lines.push(`Agregados: ${added.map((item) => `${item.product_id} x${item.quantity ?? item.qty ?? 0} (${formatCurrency(item.priceAtPurchase)})`).join(', ')}`);
+        }
+        if (removed.length) {
+            lines.push(`Quitados: ${removed.map((item) => `${item.product_id} x${item.quantity ?? item.qty ?? 0}`).join(', ')}`);
+        }
+        updated.forEach((item) => {
+            const changes = Object.entries(item.changes || {})
+                .map(([field, change]) => formatLogChange(field === 'quantity' ? 'cantidad' : field, change))
+                .filter(Boolean)
+                .join('; ');
+            lines.push(`Modificado ${item.product_id}: ${changes || 'sin detalle'}`);
+        });
+
+        [
+            ['Recargo', metadata.extraCharge],
+            ['Total', metadata.total],
+            ['Items totales', metadata.totalItems],
+        ].forEach(([label, change]) => {
+            const line = formatLogChange(label, change);
+            if (line) lines.push(line);
+        });
+
+        return lines;
+    }
+
+    if (metadata.from && metadata.to && typeof metadata.from === 'object' && typeof metadata.to === 'object') {
+        return buildObjectChangeLines(metadata.from, metadata.to);
+    }
+
+    const directChange = formatLogChange('Cambio', metadata);
+    if (directChange) return [directChange];
+
+    return Object.entries(metadata)
+        .map(([key, value]) => formatLogChange(key, value) || `${key}: ${formatLogValue(value)}`)
+        .filter(Boolean);
+};
+
 const tabLabel = (label) => (
     <span style={{
         display: 'inline-block',
@@ -100,6 +302,7 @@ const OrderModal = ({
     onResendEmail,
     onPricingUpdate,
 }) => {
+    const { user } = useAuth();
     const [deliveryForm] = Form.useForm();
     const [selectedStatus, setSelectedStatus] = React.useState('');
     const [statusUpdating, setStatusUpdating] = React.useState(false);
@@ -111,7 +314,37 @@ const OrderModal = ({
     const [productOptions, setProductOptions] = React.useState([]);
     const [productSearchLoading, setProductSearchLoading] = React.useState(false);
     const [selectedProductToAdd, setSelectedProductToAdd] = React.useState(null);
+    const [internalLogs, setInternalLogs] = React.useState([]);
+    const [logsLoading, setLogsLoading] = React.useState(false);
+    const [logsError, setLogsError] = React.useState('');
+    const [newLogMessage, setNewLogMessage] = React.useState('');
+    const [logSaving, setLogSaving] = React.useState(false);
+    const [editingLogId, setEditingLogId] = React.useState('');
+    const [editingLogMessage, setEditingLogMessage] = React.useState('');
+    const [logActionLoadingId, setLogActionLoadingId] = React.useState('');
     const nextEditableItemIdRef = React.useRef(1);
+
+    const loadInternalLogs = React.useCallback(async () => {
+        if (!visible || !order?.orderId) {
+            setInternalLogs([]);
+            return;
+        }
+
+        setLogsLoading(true);
+        setLogsError('');
+        try {
+            const { data } = await ordersAPI.getLogs(order.orderId);
+            const logs = Array.isArray(data)
+                ? data
+                : (Array.isArray(data?.logs) ? data.logs : []);
+            setInternalLogs(logs.map(normalizeOrderLog));
+        } catch (error) {
+            setInternalLogs([]);
+            setLogsError(getApiErrorMessage(error, 'No se pudo cargar la bitácora interna'));
+        } finally {
+            setLogsLoading(false);
+        }
+    }, [visible, order?.orderId]);
 
     React.useEffect(() => {
         setSelectedStatus(order?.status || defaultStatus || '');
@@ -125,6 +358,11 @@ const OrderModal = ({
             setEditPricingMode(false);
             setProductOptions([]);
             setSelectedProductToAdd(null);
+            setInternalLogs([]);
+            setLogsError('');
+            setNewLogMessage('');
+            setEditingLogId('');
+            setEditingLogMessage('');
             return;
         }
 
@@ -147,6 +385,13 @@ const OrderModal = ({
         setEditPricingMode(false);
         nextEditableItemIdRef.current = items.length + 1;
     }, [visible, order, deliveryForm]);
+
+    React.useEffect(() => {
+        setNewLogMessage('');
+        setEditingLogId('');
+        setEditingLogMessage('');
+        loadInternalLogs();
+    }, [loadInternalLogs]);
 
     if (!order) return null;
 
@@ -187,6 +432,7 @@ const OrderModal = ({
         setStatusUpdating(true);
         try {
             await onQuickStatusUpdate(order.orderId, selectedStatus);
+            await loadInternalLogs();
         } finally {
             setStatusUpdating(false);
         }
@@ -207,6 +453,7 @@ const OrderModal = ({
             if (typeof onUpdated === 'function') {
                 await onUpdated();
             }
+            await loadInternalLogs();
         } catch (error) {
             message.error(getApiErrorMessage(error, 'Error al actualizar los datos de entrega'));
         } finally {
@@ -291,8 +538,79 @@ const OrderModal = ({
                 extraCharge: Number(extraCharge ?? 0),
             });
             setEditPricingMode(false);
+            await loadInternalLogs();
         } finally {
             setValuesUpdating(false);
+        }
+    };
+
+    const handleCreateLog = async () => {
+        const trimmedMessage = newLogMessage.trim();
+        if (!trimmedMessage) {
+            message.error('La nota interna no puede estar vacía');
+            return;
+        }
+
+        setLogSaving(true);
+        try {
+            await ordersAPI.createLog(order.orderId, {
+                message: trimmedMessage,
+                type: 'note',
+                createdBy: user?.username || 'admin',
+            });
+            setNewLogMessage('');
+            message.success('Nota interna creada correctamente');
+            await loadInternalLogs();
+        } catch (error) {
+            setLogsError(getApiErrorMessage(error, 'No se pudo crear la nota interna'));
+        } finally {
+            setLogSaving(false);
+        }
+    };
+
+    const startEditingLog = (log) => {
+        setEditingLogId(log._id);
+        setEditingLogMessage(log.message || '');
+    };
+
+    const cancelEditingLog = () => {
+        setEditingLogId('');
+        setEditingLogMessage('');
+    };
+
+    const handleUpdateLog = async (logId) => {
+        const trimmedMessage = editingLogMessage.trim();
+        if (!trimmedMessage) {
+            message.error('La nota interna no puede estar vacía');
+            return;
+        }
+
+        setLogActionLoadingId(logId);
+        try {
+            await ordersAPI.updateLog(order.orderId, logId, {
+                message: trimmedMessage,
+                updatedBy: user?.username || 'admin',
+            });
+            cancelEditingLog();
+            message.success('Nota interna actualizada correctamente');
+            await loadInternalLogs();
+        } catch (error) {
+            setLogsError(getApiErrorMessage(error, 'No se pudo actualizar la nota interna'));
+        } finally {
+            setLogActionLoadingId('');
+        }
+    };
+
+    const handleDeleteLog = async (logId) => {
+        setLogActionLoadingId(logId);
+        try {
+            await ordersAPI.deleteLog(order.orderId, logId);
+            message.success('Nota interna eliminada correctamente');
+            await loadInternalLogs();
+        } catch (error) {
+            setLogsError(getApiErrorMessage(error, 'No se pudo eliminar la nota interna'));
+        } finally {
+            setLogActionLoadingId('');
         }
     };
 
@@ -355,6 +673,102 @@ const OrderModal = ({
                 ),
             }]
             : []),
+    ];
+
+    const logsColumns = [
+        {
+            title: 'Fecha',
+            dataIndex: 'createdAt',
+            width: 170,
+            render: formatDateTime,
+        },
+        {
+            title: 'Evento',
+            dataIndex: 'type',
+            width: 170,
+            render: (type) => (
+                <Tag color={LOG_TYPE_COLORS[type] || 'default'}>
+                    {LOG_TYPE_LABELS[type] || type || 'Sin tipo'}
+                </Tag>
+            ),
+        },
+        {
+            title: 'Detalle',
+            dataIndex: 'message',
+            render: (value, record) => (editingLogId === record._id ? (
+                <Input.TextArea
+                    rows={3}
+                    value={editingLogMessage}
+                    onChange={(event) => setEditingLogMessage(event.target.value)}
+                />
+            ) : (
+                <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                    <Text style={{ whiteSpace: 'pre-wrap' }}>{buildLogMessage(record, statusLabels)}</Text>
+                    {buildMetadataLines(record.metadata, record.type, statusLabels).map((line) => (
+                        <Text key={line} type="secondary" style={{ fontSize: 12 }}>
+                            {line}
+                        </Text>
+                    ))}
+                    {record.updatedAt ? (
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                            Editado por {record.updatedBy || 'admin'} el {formatDateTime(record.updatedAt)}
+                        </Text>
+                    ) : null}
+                </Space>
+            )),
+        },
+        {
+            title: 'Origen',
+            dataIndex: 'createdBy',
+            width: 130,
+            render: (createdBy) => (createdBy === 'system' ? 'Sistema' : (createdBy || 'admin')),
+        },
+        {
+            title: 'Acciones',
+            key: 'actions',
+            width: 150,
+            render: (_, record) => (record.type !== 'note' || record.createdBy === 'system' ? (
+                <Text type="secondary">Automático</Text>
+            ) : editingLogId === record._id ? (
+                <Space>
+                    <Button
+                        type="primary"
+                        size="small"
+                        icon={<SaveOutlined />}
+                        loading={logActionLoadingId === record._id}
+                        onClick={() => handleUpdateLog(record._id)}
+                    />
+                    <Button
+                        size="small"
+                        icon={<CloseOutlined />}
+                        onClick={cancelEditingLog}
+                    />
+                </Space>
+            ) : (
+                <Space>
+                    <Button
+                        size="small"
+                        icon={<EditOutlined />}
+                        onClick={() => startEditingLog(record)}
+                        disabled={Boolean(editingLogId)}
+                    />
+                    <Popconfirm
+                        title="¿Eliminar esta nota interna?"
+                        okText="Sí"
+                        cancelText="No"
+                        onConfirm={() => handleDeleteLog(record._id)}
+                    >
+                        <Button
+                            size="small"
+                            danger
+                            icon={<DeleteOutlined />}
+                            loading={logActionLoadingId === record._id}
+                            disabled={Boolean(editingLogId)}
+                        />
+                    </Popconfirm>
+                </Space>
+            )),
+        },
     ];
 
     const SummaryHeader = (
@@ -558,6 +972,58 @@ const OrderModal = ({
                         </Button>
                     ) : null}
                 </div>
+            ),
+        },
+        {
+            key: 'internalLogs',
+            label: tabLabel('Seguimiento interno'),
+            children: (
+                <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                    {logsError ? (
+                        <Alert
+                            type="error"
+                            showIcon
+                            message={logsError}
+                            action={(
+                                <Button size="small" onClick={loadInternalLogs}>
+                                    Reintentar
+                                </Button>
+                            )}
+                        />
+                    ) : null}
+
+                    <Card size="small">
+                        <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                            <Text strong>Nueva nota interna</Text>
+                            <Input.TextArea
+                                rows={3}
+                                value={newLogMessage}
+                                placeholder="Escribir una nota de seguimiento operativo"
+                                onChange={(event) => setNewLogMessage(event.target.value)}
+                            />
+                            <Button
+                                type="primary"
+                                icon={<SaveOutlined />}
+                                onClick={handleCreateLog}
+                                loading={logSaving}
+                                disabled={!newLogMessage.trim()}
+                            >
+                                Guardar nota
+                            </Button>
+                        </Space>
+                    </Card>
+
+                    <Table
+                        size="small"
+                        dataSource={internalLogs}
+                        rowKey="_id"
+                        loading={logsLoading}
+                        pagination={false}
+                        columns={logsColumns}
+                        scroll={{ x: 760 }}
+                        locale={{ emptyText: logsLoading ? 'Cargando bitácora...' : 'Sin notas internas' }}
+                    />
+                </Space>
             ),
         },
         {
