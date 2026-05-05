@@ -2,7 +2,7 @@ import React from 'react';
 import { Button, Card, Space, Typography } from 'antd';
 import { CloseOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 
-const { Text, Title } = Typography;
+const { Title } = Typography;
 
 const getInitialVisible = (storageKey, defaultOpen) => {
     if (!storageKey || typeof window === 'undefined') return defaultOpen;
@@ -54,9 +54,7 @@ const HelpPanel = ({
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
                         <Space direction="vertical" size={8} style={{ width: '100%' }}>
                             {title ? <Title level={5} style={{ margin: 0 }}>{title}</Title> : null}
-                            <Text component="div" style={{ display: 'block' }}>
-                                {children}
-                            </Text>
+                            <div>{children}</div>
                         </Space>
 
                         <Button
