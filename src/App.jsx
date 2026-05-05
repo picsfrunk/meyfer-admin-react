@@ -12,6 +12,7 @@ import Orders from './pages/Orders/Orders.jsx';
 import Products from './pages/Products/Products.jsx';
 import JobsPage from './pages/JobsPage.jsx';
 import CustomersPage from './pages/CustomersPage';
+import HelpPage from './pages/HelpPage';
 
 // Configuración de tema para Ant Design
 const theme = {
@@ -95,6 +96,18 @@ function App() {
                                 <ProtectedRoute>
                                     <DashboardLayout>
                                         <CustomersPage />
+                                    </DashboardLayout>
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        {/* ── Ayuda ── */}
+                        <Route
+                            path="/help"
+                            element={
+                                <ProtectedRoute>
+                                    <DashboardLayout>
+                                        <HelpPage />
                                     </DashboardLayout>
                                 </ProtectedRoute>
                             }
