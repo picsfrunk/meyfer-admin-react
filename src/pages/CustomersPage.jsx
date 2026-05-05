@@ -36,10 +36,11 @@ import {
     normalizeOrdersFromApi,
     normalizeStatusKey,
 } from '../models/orderModel';
+import HelpPanel from '../components/common/HelpPanel';
 import OrdersTable from './Orders/OrdersTable';
 import OrderModal from './Orders/OrderModal';
 
-const { Title, Text } = Typography;
+const { Paragraph, Text, Title } = Typography;
 
 const CustomerForm = ({ form }) => (
     <Form form={form} layout="vertical">
@@ -542,6 +543,19 @@ const CustomersPage = () => {
                     </Button>
                 </Space>
             </div>
+
+            <HelpPanel title="Cómo usar Gestión de Clientes" storageKey="help-customers-page">
+                <Paragraph style={{ marginBottom: 8 }}>
+                    En esta pantalla podés administrar clientes y sus códigos de acceso para que puedan realizar pedidos desde la tienda.
+                </Paragraph>
+                <ul style={{ marginBottom: 0, paddingLeft: 20 }}>
+                    <li><Text strong>Nuevo cliente</Text> crea un cliente y genera automáticamente su código.</li>
+                    <li>El código de cliente es el dato que identifica al cliente cuando crea un pedido.</li>
+                    <li><Text strong>Regenerar código</Text> invalida el código anterior; usalo solo cuando necesites reemplazarlo.</li>
+                    <li><Text strong>Ver Pedidos</Text> muestra los pedidos asociados al cliente y permite abrir el mismo modal de gestión de pedidos.</li>
+                    <li>La dirección registrada del cliente puede usarse como base para la entrega, pero cada pedido guarda su propia dirección efectiva.</li>
+                </ul>
+            </HelpPanel>
 
             {successAlert && (
                 <Alert
