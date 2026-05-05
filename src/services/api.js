@@ -56,16 +56,79 @@ export const configAPI = {
 };
 
 export const productsAPI = {
-    updateParsed: () => api.post('/config/parsed'),
-    scrape: (data) => api.post('/config/scrape', data),
+    getAll: (params = {}) => api.get('/products/scraped', { params }),
+    getById: (id) => api.get(`/products/scraped/${id}`),
+    create: (formData) => api.post('/admin/products', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+        },
+    }),
+    update: (id, formData) => api.put(`/admin/products/${id}`, formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+        },
+    }),
+    delete: (id) => api.delete(`/admin/products/${id}`),
+    updatePrice: (id, price) => api.put(`/admin/products/${id}`, { list_price: price }, {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+        },
+    }),
     getCategories: () => api.get('/categories'),
+    getBrands: () => api.get('/products/brands'),
+};
+
+export const customersAPI = {
+    getAll:         ()         => api.get('/admin/customers'),
+    getById:        (id)       => api.get(`/admin/customers/${id}`),
+    create:         (data)     => api.post('/admin/customers', data),
+    update:         (id, data) => api.put(`/admin/customers/${id}`, data),
+    delete:         (id)       => api.delete(`/admin/customers/${id}`),
+    regenerateCode: (id)       => api.post(`/admin/customers/${id}/regenerate-code`),
 };
 
 export const ordersAPI = {
     getAll: (url = '/orders') => api.get(url),
+    getStatuses: () => api.get('/orders/statuses'),
     getById: (id) => api.get(`/orders/${id}`),
+    getLogs: (orderId) => api.get(`/orders/${orderId}/logs`),
+    createLog: (orderId, data) => api.post(`/orders/${orderId}/logs`, data),
+    updateLog: (orderId, logId, data) => api.patch(`/orders/${orderId}/logs/${logId}`, data),
+    deleteLog: (orderId, logId) => api.delete(`/orders/${orderId}/logs/${logId}`),
+    getByCustomer: (customerCode, status = null) => {
+        const params = new URLSearchParams();
+        params.append('customerCode', customerCode);
+        if (status) params.append('status', status);
+        return api.get(`/orders?${params.toString()}`);
+    },
     update: (id, data) => api.put(`/orders/${id}`, data),
+    updatePricing: (id, data) => api.patch(`/orders/${id}/pricing`, data),
     delete: (id) => api.delete(`/orders/${id}`),
     updateStatus: (id, status) => api.patch(`/orders/${id}/status`, { status }),
     resendOrderEmail: (id) => api.post(`/orders/${id}/resend-emails`),
+    updateDelivery: (id, delivery) =>
+        api.patch(`/orders/${id}/delivery`, { delivery }),
+    refreshOrderValues: async (id) => {
+        const attempts = [
+            () => api.patch(`/orders/${id}/update-values`),
+            () => api.post(`/orders/${id}/update-values`),
+            () => api.patch(`/orders/${id}/refresh-values`),
+            () => api.post(`/orders/${id}/refresh-values`),
+        ];
+
+        let lastError = new Error('No se pudo actualizar los valores del pedido');
+        for (const request of attempts) {
+            try {
+                return await request();
+            } catch (error) {
+                lastError = error;
+                const statusCode = error?.response?.status;
+                if (statusCode !== 404 && statusCode !== 405) {
+                    throw error;
+                }
+            }
+        }
+
+        throw lastError;
+    },
 };

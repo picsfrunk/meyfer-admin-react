@@ -9,6 +9,10 @@ import Login from './pages/Login';
 import Config from './pages/Config';
 import Catalog from './pages/Catalog';
 import Orders from './pages/Orders/Orders.jsx';
+import Products from './pages/Products/Products.jsx';
+import JobsPage from './pages/JobsPage.jsx';
+import CustomersPage from './pages/CustomersPage';
+import HelpPage from './pages/HelpPage';
 
 // Configuración de tema para Ant Design
 const theme = {
@@ -61,6 +65,56 @@ function App() {
                                 </ProtectedRoute>
                             }
                         />
+
+                        <Route
+                            path="/products"
+                            element={
+                                <ProtectedRoute>
+                                    <DashboardLayout>
+                                        <Products />
+                                    </DashboardLayout>
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        {/* ── Monitor de Procesos ── */}
+                        <Route
+                            path="/procesos"
+                            element={
+                                <ProtectedRoute>
+                                    <DashboardLayout>
+                                        <JobsPage />
+                                    </DashboardLayout>
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        {/* ── Clientes ── */}
+                        <Route
+                            path="/customers"
+                            element={
+                                <ProtectedRoute>
+                                    <DashboardLayout>
+                                        <CustomersPage />
+                                    </DashboardLayout>
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        {/* ── Ayuda ── */}
+                        <Route
+                            path="/help"
+                            element={
+                                <ProtectedRoute>
+                                    <DashboardLayout>
+                                        <HelpPage />
+                                    </DashboardLayout>
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        {/* Redirección legacy: /scraper → /procesos */}
+                        <Route path="/scraper" element={<Navigate to="/procesos" replace />} />
 
                         {/* Redirección por defecto */}
                         <Route path="*" element={<Navigate to="/orders" replace />} />

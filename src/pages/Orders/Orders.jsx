@@ -2,77 +2,153 @@ import React, { useState, useEffect } from 'react';
 import { Card, Button, Space, Typography, message } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { ordersAPI } from '../../services/api';
+import { getApiErrorMessage } from '../../utils/apiError';
+import {
+    buildStatusColors,
+    buildStatusDefinitions,
+    buildStatusLabels,
+    isDeletedStatus,
+    normalizeOrderFromApi,
+    normalizeOrdersFromApi,
+    normalizeStatusKey,
+} from '../../models/orderModel';
 
+import HelpPanel from '../../components/common/HelpPanel';
 import OrdersFilter from './OrdersFilter';
 import OrdersTable from './OrdersTable';
-import EditOrderModal from './EditOrderModal';
-import OrderDetailModal from './OrderDetailModal';
+import OrderModal from './OrderModal';
 
-const { Title } = Typography;
-
-const statusColors = {
-    todos: 'geekblue',
-    pending: 'orange',
-    procesado: 'blue',
-    enviado: 'cyan',
-    entregado: 'LightGreen',
-    cancelado: 'red',
-    deleted: 'gray',
-};
-
-const statusOptions = [
-    { key: 'todos', label: 'Todos', color: 'geekblue' },
-    { key: 'pending', label: 'Pendiente', color: 'orange' },
-    { key: 'procesado', label: 'Procesado', color: 'cyan' },
-    { key: 'enviado', label: 'Enviado', color: 'green' },
-    { key: 'entregado', label: 'Entregado', color: 'success' },
-    { key: 'cancelado', label: 'Cancelado', color: 'red' },
-];
+const { Paragraph, Text, Title } = Typography;
 
 const Orders = () => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [statusesLoading, setStatusesLoading] = useState(false);
+    const [statusDefinitions, setStatusDefinitions] = useState([]);
+    const [statusLabels, setStatusLabels] = useState({});
+    const [defaultStatusKey, setDefaultStatusKey] = useState('');
+    const [deletedStatusKey, setDeletedStatusKey] = useState('');
+    const [statusColors, setStatusColors] = useState({ todos: 'geekblue' });
 
-    const [modalVisible, setModalVisible] = useState(false);
-    const [detailModalVisible, setDetailModalVisible] = useState(false);
+    const [orderModalVisible, setOrderModalVisible] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState(null);
 
-    const [selectedStatuses, setSelectedStatuses] = useState(['pending']);
+    const [selectedStatuses, setSelectedStatuses] = useState([]);
     const [showDeleted, setShowDeleted] = useState(false);
     const [allSelected, setAllSelected] = useState(false);
 
+    const statusOptions = [
+        { key: 'todos', label: 'Todos', color: 'geekblue' },
+        ...statusDefinitions
+            .filter((statusDef) => !isDeletedStatus(statusDef.label))
+            .map((statusDef) => ({
+                key: statusDef.key,
+                label: statusDef.label,
+                color: statusColors[statusDef.key] || 'default',
+            })),
+    ];
+
+    const loadOrderStatuses = async () => {
+        setStatusesLoading(true);
+        try {
+            const { data } = await ordersAPI.getStatuses();
+            const statuses = Array.isArray(data?.statuses) ? data.statuses : [];
+            const backendDefaultStatus = data?.defaultStatus;
+
+            if (statuses.length === 0) {
+                message.error('No se recibieron estados válidos desde backend');
+                setStatusDefinitions([]);
+                setStatusLabels({});
+                setDefaultStatusKey('');
+                setDeletedStatusKey('');
+                setStatusColors({ todos: 'geekblue' });
+                return { statuses: [], deleted: '', initialStatuses: [] };
+            }
+
+            const generatedDefinitions = buildStatusDefinitions(statuses);
+            const labels = buildStatusLabels(generatedDefinitions);
+
+            const detectedDeletedStatus = generatedDefinitions.find((status) => isDeletedStatus(status.key) || isDeletedStatus(status.label))?.key || '';
+            const normalizedDefaultStatus = normalizeStatusKey(backendDefaultStatus);
+            const validDefaultStatusKey = generatedDefinitions.some((status) => status.key === normalizedDefaultStatus)
+                ? normalizedDefaultStatus
+                : generatedDefinitions.find((status) => !isDeletedStatus(status.key))?.key || generatedDefinitions[0]?.key || '';
+
+            setStatusDefinitions(generatedDefinitions);
+            setStatusLabels(labels);
+            setDefaultStatusKey(validDefaultStatusKey);
+            setDeletedStatusKey(detectedDeletedStatus);
+            setStatusColors(buildStatusColors(generatedDefinitions));
+
+            return {
+                statuses: generatedDefinitions,
+                deleted: detectedDeletedStatus,
+                initialStatuses: validDefaultStatusKey ? [validDefaultStatusKey] : [],
+            };
+        } catch (error) {
+            message.error(getApiErrorMessage(error, 'Error al cargar estados de pedidos'));
+            setStatusDefinitions([]);
+            setStatusLabels({});
+            setDefaultStatusKey('');
+            setDeletedStatusKey('');
+            setStatusColors({ todos: 'geekblue' });
+            return { statuses: [], deleted: '', initialStatuses: [] };
+        } finally {
+            setStatusesLoading(false);
+        }
+    };
+
     const loadOrders = async (
-        statusFilters = ['pending'],
+        statusFilters = selectedStatuses,
         includeDeleted = false,
-        all = false
+        all = false,
+        statusesSource = statusDefinitions,
+        deletedStatusSource = deletedStatusKey
     ) => {
         setLoading(true);
         try {
             let statusesToFetch = [...statusFilters];
             if (all) {
-                statusesToFetch = ['pending', 'procesado', 'enviado', 'entregado', 'cancelado'];
+                statusesToFetch = statusesSource
+                    .filter((statusDef) => !isDeletedStatus(statusDef.label))
+                    .map((statusDef) => statusDef.key);
             }
-            if (includeDeleted) statusesToFetch.push('deleted');
+            if (includeDeleted && deletedStatusSource) statusesToFetch.push(deletedStatusSource);
+
+            statusesToFetch = [...new Set(statusesToFetch)];
 
             const query = statusesToFetch.length
                 ? `?status=${encodeURIComponent(statusesToFetch.join(','))}`
                 : '';
             const { data } = await ordersAPI.getAll(`/orders${query}`);
-            setOrders(Array.isArray(data) ? data : []);
+            if (!Array.isArray(data)) {
+                setOrders([]);
+                message.error('Formato inválido al cargar los pedidos');
+                return;
+            }
+
+            const normalizedOrders = normalizeOrdersFromApi(data);
+            setOrders(normalizedOrders);
+            setSelectedOrder((current) => {
+                if (!current?.orderId) return current;
+                return normalizedOrders.find((order) => order.orderId === current.orderId) || current;
+            });
         } catch (error) {
             console.error('Error loading orders:', error);
-            message.error('Error al cargar los pedidos');
+            message.error(getApiErrorMessage(error, 'Error al cargar los pedidos'));
         } finally {
             setLoading(false);
         }
     };
+
+    const refreshOrders = () => loadOrders(selectedStatuses, showDeleted, allSelected, statusDefinitions, deletedStatusKey);
 
     const handleStatusToggle = async (statusKey) => {
         if (statusKey === 'todos') {
             const newAll = !allSelected;
             setAllSelected(newAll);
             setSelectedStatuses([]);
-            await loadOrders([], showDeleted, newAll);
+            await loadOrders([], showDeleted, newAll, statusDefinitions, deletedStatusKey);
             return;
         }
         setAllSelected(false);
@@ -80,21 +156,21 @@ const Orders = () => {
             ? selectedStatuses.filter((s) => s !== statusKey)
             : [...selectedStatuses, statusKey];
         setSelectedStatuses(newStatuses);
-        await loadOrders(newStatuses, showDeleted, false);
+        await loadOrders(newStatuses, showDeleted, false, statusDefinitions, deletedStatusKey);
     };
 
     const handleDeletedToggle = async (checked) => {
         setShowDeleted(checked);
-        await loadOrders(selectedStatuses, checked, allSelected);
+        await loadOrders(selectedStatuses, checked, allSelected, statusDefinitions, deletedStatusKey);
     };
 
     const handleStatusUpdate = async (orderId, newStatus) => {
         try {
             await ordersAPI.updateStatus(orderId, newStatus);
             message.success('Estado actualizado correctamente');
-            await loadOrders(selectedStatuses, showDeleted, allSelected);
+            await refreshOrders();
         } catch (error) {
-            message.error('Error al actualizar el estado');
+            message.error(getApiErrorMessage(error, 'Error al actualizar el estado'));
             console.error(error);
         }
     };
@@ -104,29 +180,71 @@ const Orders = () => {
             await ordersAPI.resendOrderEmail(orderId);
             message.success('Correo reenviado correctamente');
         } catch (error) {
-            message.error(`Error al reenviar correo de pedido ${orderId}`);
+            message.error(getApiErrorMessage(error, `Error al reenviar correo de pedido ${orderId}`));
             console.error(error);
         }
     };
 
-    const handleDelete = async (orderId) => {
+    const handlePricingUpdate = async (orderId, payload) => {
         try {
-            await ordersAPI.delete(orderId);
-            message.success('Pedido eliminado correctamente');
-            await loadOrders(selectedStatuses, showDeleted, allSelected);
+            const { data } = await ordersAPI.updatePricing(orderId, payload);
+            const updatedOrderPayload = data?.order || data?.updatedOrder || data;
+            if (updatedOrderPayload && !Array.isArray(updatedOrderPayload) && typeof updatedOrderPayload === 'object') {
+                setSelectedOrder(normalizeOrderFromApi(updatedOrderPayload));
+            }
+            message.success('Valores del pedido actualizados correctamente');
+            await refreshOrders();
+            return updatedOrderPayload;
         } catch (error) {
-            message.error('Error al eliminar el pedido');
+            message.error(getApiErrorMessage(error, 'Error al actualizar valores del pedido'));
+            console.error(error);
+            throw error;
+        }
+    };
+
+    const handleDelete = async (orderToDelete) => {
+        const backendId = orderToDelete?._id;
+        const publicOrderId = orderToDelete?.orderId;
+
+        try {
+            if (backendId) {
+                try {
+                    await ordersAPI.delete(backendId);
+                } catch (firstError) {
+                    if (!publicOrderId) {
+                        throw firstError;
+                    }
+                    await ordersAPI.delete(publicOrderId);
+                }
+            } else if (publicOrderId) {
+                await ordersAPI.delete(publicOrderId);
+            } else {
+                throw new Error('No se encontró un identificador válido para eliminar el pedido');
+            }
+
+            message.success('Pedido eliminado correctamente');
+            setOrderModalVisible(false);
+            setSelectedOrder(null);
+            await refreshOrders();
+        } catch (error) {
+            message.error(getApiErrorMessage(error, 'Error al eliminar el pedido'));
             console.error(error);
         }
     };
 
-    const handleEdit = (order) => {
+    const handleOpenOrder = (order) => {
         setSelectedOrder(order);
-        setModalVisible(true);
+        setOrderModalVisible(true);
     };
 
     useEffect(() => {
-        loadOrders(['pending']);
+        const initializeOrders = async () => {
+            const { statuses, deleted, initialStatuses } = await loadOrderStatuses();
+            setSelectedStatuses(initialStatuses);
+            await loadOrders(initialStatuses, false, false, statuses, deleted);
+        };
+
+        initializeOrders();
     }, []);
 
     return (
@@ -136,13 +254,26 @@ const Orders = () => {
                 <Space>
                     <Button
                         icon={<ReloadOutlined />}
-                        onClick={() => loadOrders(selectedStatuses, showDeleted, allSelected)}
-                        loading={loading}
+                        onClick={refreshOrders}
+                        loading={loading || statusesLoading}
                     >
                         Actualizar
                     </Button>
                 </Space>
             </div>
+
+            <HelpPanel title="Cómo usar Gestión de Pedidos" storageKey="help-orders-page">
+                <Paragraph style={{ marginBottom: 8 }}>
+                    En esta pantalla podés revisar pedidos, filtrarlos por estado y abrir cada pedido desde <Text strong>Ver / editar</Text>.
+                </Paragraph>
+                <ul style={{ marginBottom: 0, paddingLeft: 20 }}>
+                    <li>Los filtros permiten enfocarte en pedidos pendientes, confirmados, procesando, enviados o entregados.</li>
+                    <li>El modal del pedido separa Detalle, Entrega, Productos, Acciones y Bitácora.</li>
+                    <li>La <Text strong>Nota del cliente</Text> es la observación escrita al crear el pedido.</li>
+                    <li>La <Text strong>Bitácora interna</Text> registra notas del equipo y eventos automáticos como cambios de estado, entrega, precios o eliminación.</li>
+                    <li>Eliminar un pedido realiza una baja lógica y lo marca como eliminado.</li>
+                </ul>
+            </HelpPanel>
 
             <OrdersFilter
                 statusOptions={statusOptions}
@@ -157,28 +288,27 @@ const Orders = () => {
             <Card>
                 <OrdersTable
                     orders={orders}
-                    loading={loading}
+                    loading={loading || statusesLoading}
                     statusColors={statusColors}
-                    onShowDetail={(o) => { setSelectedOrder(o); setDetailModalVisible(true); }}
-                    onEdit={handleEdit}
+                    statusLabels={statusLabels}
+                    onOpenOrder={handleOpenOrder}
                     onDelete={handleDelete}
                 />
             </Card>
 
-            <EditOrderModal
-                visible={modalVisible}
-                order={selectedOrder}
-                onClose={() => setModalVisible(false)}
-                onUpdated={() => loadOrders(selectedStatuses, showDeleted, allSelected)}
-            />
-
-            <OrderDetailModal
-                visible={detailModalVisible}
+            <OrderModal
+                visible={orderModalVisible}
                 order={selectedOrder}
                 statusColors={statusColors}
-                onClose={() => setDetailModalVisible(false)}
+                statusLabels={statusLabels}
+                orderStatuses={statusDefinitions}
+                defaultStatus={defaultStatusKey}
+                deletedStatus={deletedStatusKey}
+                onClose={() => setOrderModalVisible(false)}
+                onUpdated={refreshOrders}
                 onQuickStatusUpdate={handleStatusUpdate}
                 onResendEmail={handleResendEmail}
+                onPricingUpdate={handlePricingUpdate}
             />
         </div>
     );
