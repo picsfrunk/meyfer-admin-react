@@ -10,6 +10,7 @@ import {
     RobotOutlined,
     AppstoreOutlined,
     TeamOutlined,
+    QuestionCircleOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -89,6 +90,15 @@ const DashboardLayout = ({ children }) => {
             label: 'Procesos',
             onClick: () => {
                 navigate('/procesos');
+                if (isMobile) setDrawerVisible(false);
+            },
+        },
+        {
+            key: '/help',
+            icon: <QuestionCircleOutlined />,
+            label: 'Ayuda',
+            onClick: () => {
+                navigate('/help');
                 if (isMobile) setDrawerVisible(false);
             },
         },

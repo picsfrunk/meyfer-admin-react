@@ -13,11 +13,12 @@ import {
     normalizeStatusKey,
 } from '../../models/orderModel';
 
+import HelpPanel from '../../components/common/HelpPanel';
 import OrdersFilter from './OrdersFilter';
 import OrdersTable from './OrdersTable';
 import OrderModal from './OrderModal';
 
-const { Title } = Typography;
+const { Paragraph, Text, Title } = Typography;
 
 const Orders = () => {
     const [orders, setOrders] = useState([]);
@@ -260,6 +261,19 @@ const Orders = () => {
                     </Button>
                 </Space>
             </div>
+
+            <HelpPanel title="Cómo usar Gestión de Pedidos" storageKey="help-orders-page">
+                <Paragraph style={{ marginBottom: 8 }}>
+                    En esta pantalla podés revisar pedidos, filtrarlos por estado y abrir cada pedido desde <Text strong>Ver / editar</Text>.
+                </Paragraph>
+                <ul style={{ marginBottom: 0, paddingLeft: 20 }}>
+                    <li>Los filtros permiten enfocarte en pedidos pendientes, confirmados, procesando, enviados o entregados.</li>
+                    <li>El modal del pedido separa Detalle, Entrega, Productos, Acciones y Bitácora.</li>
+                    <li>La <Text strong>Nota del cliente</Text> es la observación escrita al crear el pedido.</li>
+                    <li>La <Text strong>Bitácora interna</Text> registra notas del equipo y eventos automáticos como cambios de estado, entrega, precios o eliminación.</li>
+                    <li>Eliminar un pedido realiza una baja lógica y lo marca como eliminado.</li>
+                </ul>
+            </HelpPanel>
 
             <OrdersFilter
                 statusOptions={statusOptions}
