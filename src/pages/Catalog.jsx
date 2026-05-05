@@ -32,8 +32,9 @@ import {
 import { productsAPI, configAPI } from '../services/api';
 import { scraperAPI } from '../services/scraperAPI';
 import { getApiErrorMessage } from '../utils/apiError';
+import HelpPanel from '../components/common/HelpPanel';
 
-const { Title, Text } = Typography;
+const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
 const { Panel } = Collapse;
 
@@ -105,7 +106,6 @@ const Catalog = () => {
         return new Date(dateString).toLocaleString('es-AR');
     };
 
-    // ── Sincronización Completa ────────────────────────────────────────────────────
     const handleScrapeComplete = () => {
         Modal.confirm({
             title: '¿Ejecutar sincronización completa?',
@@ -138,7 +138,6 @@ const Catalog = () => {
         });
     };
 
-    // ── Sincronización por Categorías ──────────────────────────────────────────────
     const handleCategoryChange = (categoryIds) => {
         setSelectedCategories(categoryIds);
         setSelectAll(categoryIds.length === categories.length);
@@ -218,7 +217,6 @@ const Catalog = () => {
         });
     };
 
-    // ── Sincronización Manual ──────────────────────────────────────────────────────
     const handleScrape = (values) => {
         Modal.confirm({
             title: '¿Ejecutar sincronización manual?',
@@ -254,7 +252,6 @@ const Catalog = () => {
         });
     };
 
-    // ── Actualización desde Excel ───────────────────────────────────────────
     const handleUpdateCatalog = async () => {
         setUpdateLoading(true);
         try {
@@ -267,7 +264,6 @@ const Catalog = () => {
         setUpdateLoading(false);
     };
 
-    // ── Render ──────────────────────────────────────────────────────────────
     const selectedCategoriesData = categories.filter(c => selectedCategories.includes(c.category_id));
     const totalSelectedProducts = selectedCategoriesData.reduce((sum, c) => sum + c.product_count, 0);
 
@@ -277,7 +273,19 @@ const Catalog = () => {
                 Gestión de Catálogo
             </Title>
 
-            {/* ── 1. Estado del Catálogo ─────────────────────────────────── */}
+            <HelpPanel title="Cómo usar Gestión de Catálogo" storageKey="help-catalog-page">
+                <Paragraph style={{ marginBottom: 8 }}>
+                    Esta pantalla permite revisar el estado del catálogo y ejecutar sincronizaciones para actualizar productos y categorías.
+                </Paragraph>
+                <ul style={{ marginBottom: 0, paddingLeft: 20 }}>
+                    <li><Text strong>Sincronización completa</Text> actualiza todo el catálogo y puede demorar varios minutos.</li>
+                    <li><Text strong>Sincronización por categorías</Text> permite procesar solo algunos rubros.</li>
+                    <li><Text strong>Actualización desde Excel</Text> procesa el archivo remoto para actualizar datos de catálogo.</li>
+                    <li>Después de iniciar una sincronización, revisá el avance en la sección <Text strong>Procesos</Text>.</li>
+                    <li>Por ahora no se detallan variantes internas de scraper/actualizador porque ese flujo será simplificado más adelante.</li>
+                </ul>
+            </HelpPanel>
+
             <Divider orientation="left" style={{ marginTop: 0 }}>
                 <Text strong style={{ fontSize: isMobile ? '13px' : '15px' }}>Estado del Catálogo</Text>
             </Divider>
@@ -336,105 +344,60 @@ const Catalog = () => {
                 )}
             </Card>
 
-            {/* ── 2. Acciones de Sincronización ─────────────────────────── */}
             <Divider orientation="left">
                 <Text strong style={{ fontSize: isMobile ? '13px' : '15px' }}>Sincronización de Catálogo</Text>
             </Divider>
 
-            {/* Sincronización Completa */}
-            <Card
-                style={{ marginBottom: 16 }}
-                styles={{ body: { padding: isMobile ? '12px' : '24px' } }}
-            >
+            <Card style={{ marginBottom: 16 }} styles={{ body: { padding: isMobile ? '12px' : '24px' } }}>
                 <Space direction="vertical" style={{ width: '100%' }} size={isMobile ? 8 : 16}>
                     <Space>
                         <PlayCircleOutlined style={{ fontSize: isMobile ? '16px' : '18px' }} />
-                        <Text strong style={{ fontSize: isMobile ? '14px' : '16px' }}>
-                            Sincronización Completa
-                        </Text>
+                        <Text strong style={{ fontSize: isMobile ? '14px' : '16px' }}>Sincronización Completa</Text>
                     </Space>
                     <Alert
                         message="Actualización Total del Catálogo"
-                        description={isMobile
-                            ? 'Sincronización completa de todas las categorías.'
-                            : 'Ejecuta una sincronización completa de todas las categorías y productos. Esta operación puede tomar varios minutos.'}
+                        description={isMobile ? 'Sincronización completa de todas las categorías.' : 'Ejecuta una sincronización completa de todas las categorías y productos. Esta operación puede tomar varios minutos.'}
                         type="info"
                         showIcon
                         style={{ fontSize: isMobile ? '12px' : '14px' }}
                     />
-                    <Button
-                        type="primary"
-                        danger
-                        icon={<PlayCircleOutlined />}
-                        loading={loading}
-                        onClick={handleScrapeComplete}
-                        size={isMobile ? 'middle' : 'large'}
-                        block
-                    >
+                    <Button type="primary" danger icon={<PlayCircleOutlined />} loading={loading} onClick={handleScrapeComplete} size={isMobile ? 'middle' : 'large'} block>
                         Ejecutar Sincronización Completa
                     </Button>
                 </Space>
             </Card>
 
-            {/* Sincronización por Categorías */}
-            <Card
-                style={{ marginBottom: 16 }}
-                styles={{ body: { padding: isMobile ? '12px' : '24px' } }}
-            >
+            <Card style={{ marginBottom: 16 }} styles={{ body: { padding: isMobile ? '12px' : '24px' } }}>
                 <Space direction="vertical" style={{ width: '100%' }} size={isMobile ? 8 : 16}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                         <Space>
                             <AppstoreOutlined style={{ fontSize: isMobile ? '16px' : '18px' }} />
-                            <Text strong style={{ fontSize: isMobile ? '14px' : '16px' }}>
-                                Sincronización por Categorías
-                            </Text>
+                            <Text strong style={{ fontSize: isMobile ? '14px' : '16px' }}>Sincronización por Categorías</Text>
                         </Space>
-                        {!isMobile && (
-                            <Text type="secondary" style={{ fontSize: '12px' }}>
-                                {selectedCategories.length} de {categories.length} seleccionadas
-                            </Text>
-                        )}
+                        {!isMobile && <Text type="secondary" style={{ fontSize: '12px' }}>{selectedCategories.length} de {categories.length} seleccionadas</Text>}
                     </div>
                     <Alert
                         message="Sincronización por Lotes"
-                        description={isMobile
-                            ? 'Selecciona categorías para sincronizar.'
-                            : "Selecciona las categorías que deseas actualizar. Usar 'Seleccionar Todo' ejecutará una sincronización completa más eficiente."}
+                        description={isMobile ? 'Selecciona categorías para sincronizar.' : "Selecciona las categorías que deseas actualizar. Usar 'Seleccionar Todo' ejecutará una sincronización completa más eficiente."}
                         type="info"
                         showIcon
                         style={{ fontSize: isMobile ? '12px' : '14px' }}
                     />
-                    <Checkbox
-                        checked={selectAll}
-                        onChange={handleSelectAll}
-                        disabled={categoriesLoading}
-                        style={{ fontSize: isMobile ? '13px' : '14px' }}
-                    >
+                    <Checkbox checked={selectAll} onChange={handleSelectAll} disabled={categoriesLoading} style={{ fontSize: isMobile ? '13px' : '14px' }}>
                         <Text strong>Seleccionar Todo ({totalProducts} productos)</Text>
                     </Checkbox>
                     <Divider style={{ margin: isMobile ? '8px 0' : '12px 0' }} />
                     {categoriesLoading ? (
-                        <div style={{ textAlign: 'center', padding: '20px' }}>
-                            <Spin tip="Cargando..." />
-                        </div>
+                        <div style={{ textAlign: 'center', padding: '20px' }}><Spin tip="Cargando..." /></div>
                     ) : (
-                        <Checkbox.Group
-                            value={selectedCategories}
-                            onChange={handleCategoryChange}
-                            style={{ width: '100%' }}
-                            disabled={selectAll}
-                        >
+                        <Checkbox.Group value={selectedCategories} onChange={handleCategoryChange} style={{ width: '100%' }} disabled={selectAll}>
                             <Row gutter={[8, 8]}>
                                 {categories.map((category) => (
                                     <Col span={isMobile ? 24 : 12} md={8} lg={6} key={category.category_id}>
                                         <Checkbox value={category.category_id} style={{ width: '100%' }}>
                                             <Space direction="vertical" size={0} style={{ width: '100%' }}>
-                                                <Text strong style={{ fontSize: isMobile ? '12px' : '14px' }}>
-                                                    {category.category_name}
-                                                </Text>
-                                                <Tag color="blue" style={{ fontSize: isMobile ? '10px' : '12px' }}>
-                                                    {category.product_count} productos
-                                                </Tag>
+                                                <Text strong style={{ fontSize: isMobile ? '12px' : '14px' }}>{category.category_name}</Text>
+                                                <Tag color="blue" style={{ fontSize: isMobile ? '10px' : '12px' }}>{category.product_count} productos</Tag>
                                             </Space>
                                         </Checkbox>
                                     </Col>
@@ -442,140 +405,61 @@ const Catalog = () => {
                             </Row>
                         </Checkbox.Group>
                     )}
-                    <Button
-                        type="primary"
-                        disabled={selectedCategories.length === 0}
-                        loading={loading}
-                        onClick={handleScrapeBatch}
-                        icon={<PlayCircleOutlined />}
-                        size={isMobile ? 'middle' : 'large'}
-                        block
-                    >
+                    <Button type="primary" disabled={selectedCategories.length === 0} loading={loading} onClick={handleScrapeBatch} icon={<PlayCircleOutlined />} size={isMobile ? 'middle' : 'large'} block>
                         Ejecutar Seleccionadas ({totalSelectedProducts} productos)
                     </Button>
                 </Space>
             </Card>
 
-            {/* Actualización desde Excel */}
             {isMobile ? (
                 <Collapse defaultActiveKey={[]} style={{ marginBottom: 16 }}>
-                    <Panel
-                        header={<Space><FileExcelOutlined /><Text strong>Actualización desde Excel</Text></Space>}
-                        key="excel"
-                    >
+                    <Panel header={<Space><FileExcelOutlined /><Text strong>Actualización desde Excel</Text></Space>} key="excel">
                         <Space direction="vertical" style={{ width: '100%' }} size={12}>
-                            <Alert
-                                message="Actualiza precios y disponibilidad desde archivo XLS remoto."
-                                type="success"
-                                showIcon
-                                style={{ fontSize: '12px' }}
-                            />
+                            <Alert message="Actualiza precios y disponibilidad desde archivo XLS remoto." type="success" showIcon style={{ fontSize: '12px' }} />
                             <div style={{ textAlign: 'center' }}>
-                                <Text type="secondary" style={{ fontSize: '11px', display: 'block' }}>
-                                    <CalendarOutlined /> Última actualización:
-                                </Text>
+                                <Text type="secondary" style={{ fontSize: '11px', display: 'block' }}><CalendarOutlined /> Última actualización:</Text>
                                 <Text style={{ fontSize: '11px' }}>{formatDate(lastUpdate)}</Text>
                             </div>
-                            <Button
-                                type="primary"
-                                icon={<ReloadOutlined />}
-                                loading={updateLoading}
-                                onClick={handleUpdateCatalog}
-                                block
-                            >
+                            <Button type="primary" icon={<ReloadOutlined />} loading={updateLoading} onClick={handleUpdateCatalog} block>
                                 Actualizar desde Excel
                             </Button>
                         </Space>
                     </Panel>
                 </Collapse>
             ) : (
-                <Card
-                    title={<Space><FileExcelOutlined />Actualización desde Excel</Space>}
-                    style={{ marginBottom: 24 }}
-                >
+                <Card title={<Space><FileExcelOutlined />Actualización desde Excel</Space>} style={{ marginBottom: 24 }}>
                     <Space direction="vertical" style={{ width: '100%' }}>
-                        <Alert
-                            message="Actualización de Catálogo"
-                            description="Descarga y procesa el archivo XLS remoto para actualizar precios y disponibilidad de productos."
-                            type="success"
-                            showIcon
-                            size="small"
-                        />
+                        <Alert message="Actualización de Catálogo" description="Descarga y procesa el archivo XLS remoto para actualizar precios y disponibilidad de productos." type="success" showIcon size="small" />
                         <div style={{ textAlign: 'center' }}>
-                            <div style={{ marginBottom: 8 }}>
-                                <CalendarOutlined style={{ marginRight: 8 }} />
-                                <Text strong>Última actualización:</Text>
-                            </div>
+                            <div style={{ marginBottom: 8 }}><CalendarOutlined style={{ marginRight: 8 }} /><Text strong>Última actualización:</Text></div>
                             <Text type="secondary">{formatDate(lastUpdate)}</Text>
                         </div>
                         <Divider style={{ margin: '16px 0' }} />
-                        <Button
-                            type="primary"
-                            icon={<ReloadOutlined />}
-                            loading={updateLoading}
-                            onClick={handleUpdateCatalog}
-                            size="large"
-                            block
-                        >
+                        <Button type="primary" icon={<ReloadOutlined />} loading={updateLoading} onClick={handleUpdateCatalog} size="large" block>
                             Actualizar Catálogo desde Excel
                         </Button>
                     </Space>
                 </Card>
             )}
 
-            {/* ── 3. Sincronización Manual ───────────────────────────────── */}
             <Divider orientation="left">
                 <Text strong style={{ fontSize: isMobile ? '13px' : '15px' }}>Sincronización Manual</Text>
             </Divider>
 
             {isMobile ? (
                 <Collapse defaultActiveKey={[]}>
-                    <Panel
-                        header={<Space><PlayCircleOutlined /><Text strong>Sincronización Manual</Text></Space>}
-                        key="manual"
-                    >
+                    <Panel header={<Space><PlayCircleOutlined /><Text strong>Sincronización Manual</Text></Space>} key="manual">
                         <Space direction="vertical" style={{ width: '100%' }} size={12}>
-                            <Alert
-                                message="Ejecuta sincronización para una categoría específica."
-                                type="warning"
-                                showIcon
-                                icon={<WarningOutlined />}
-                                style={{ fontSize: '12px' }}
-                            />
-                            <Form
-                                form={form}
-                                layout="vertical"
-                                onFinish={handleScrape}
-                                initialValues={{ scraperType: 'categoryScraper', categoryIds: 8 }}
-                            >
-                                <Form.Item
-                                    label={<Text style={{ fontSize: '12px' }}>Tipo de Sincronización</Text>}
-                                    name="scraperType"
-                                    rules={[{ required: true }]}
-                                    style={{ marginBottom: 12 }}
-                                >
-                                    <Select size="middle" disabled>
-                                        <Option value="categoryScraper">Sincronización de Categorías</Option>
-                                    </Select>
+                            <Alert message="Ejecuta sincronización para una categoría específica." type="warning" showIcon icon={<WarningOutlined />} style={{ fontSize: '12px' }} />
+                            <Form form={form} layout="vertical" onFinish={handleScrape} initialValues={{ scraperType: 'categoryScraper', categoryIds: 8 }}>
+                                <Form.Item label={<Text style={{ fontSize: '12px' }}>Tipo de Sincronización</Text>} name="scraperType" rules={[{ required: true }]} style={{ marginBottom: 12 }}>
+                                    <Select size="middle" disabled><Option value="categoryScraper">Sincronización de Categorías</Option></Select>
                                 </Form.Item>
-                                <Form.Item
-                                    label={<Text style={{ fontSize: '12px' }}>ID de Categoría</Text>}
-                                    name="categoryIds"
-                                    rules={[{ required: true, message: 'Ingrese el ID de la categoría' }]}
-                                    style={{ marginBottom: 12 }}
-                                >
+                                <Form.Item label={<Text style={{ fontSize: '12px' }}>ID de Categoría</Text>} name="categoryIds" rules={[{ required: true, message: 'Ingrese el ID de la categoría' }]} style={{ marginBottom: 12 }}>
                                     <InputNumber style={{ width: '100%' }} min={1} placeholder="Ej: 8" />
                                 </Form.Item>
                                 <Form.Item style={{ marginBottom: 0 }}>
-                                    <Button
-                                        type="primary"
-                                        htmlType="submit"
-                                        loading={loading}
-                                        icon={<PlayCircleOutlined />}
-                                        block
-                                    >
-                                        Ejecutar
-                                    </Button>
+                                    <Button type="primary" htmlType="submit" loading={loading} icon={<PlayCircleOutlined />} block>Ejecutar</Button>
                                 </Form.Item>
                             </Form>
                         </Space>
@@ -584,47 +468,16 @@ const Catalog = () => {
             ) : (
                 <Card title={<Space><PlayCircleOutlined />Sincronización Manual</Space>}>
                     <Space direction="vertical" style={{ width: '100%' }}>
-                        <Alert
-                            message="Sincronización Individual"
-                            description="Ejecuta una sincronización para una categoría específica."
-                            type="warning"
-                            showIcon
-                            icon={<WarningOutlined />}
-                            size="small"
-                        />
-                        <Form
-                            form={form}
-                            layout="vertical"
-                            onFinish={handleScrape}
-                            initialValues={{ scraperType: 'categoryScraper', categoryIds: 8 }}
-                        >
-                            <Form.Item
-                                label="Tipo de Sincronización"
-                                name="scraperType"
-                                rules={[{ required: true, message: 'Seleccione el tipo de sincronización' }]}
-                            >
-                                <Select placeholder="Seleccione el tipo de sincronización" disabled>
-                                    <Option value="categoryScraper">Sincronización de Categorías</Option>
-                                </Select>
+                        <Alert message="Sincronización Individual" description="Ejecuta una sincronización para una categoría específica." type="warning" showIcon icon={<WarningOutlined />} size="small" />
+                        <Form form={form} layout="vertical" onFinish={handleScrape} initialValues={{ scraperType: 'categoryScraper', categoryIds: 8 }}>
+                            <Form.Item label="Tipo de Sincronización" name="scraperType" rules={[{ required: true, message: 'Seleccione el tipo de sincronización' }]}>
+                                <Select placeholder="Seleccione el tipo de sincronización" disabled><Option value="categoryScraper">Sincronización de Categorías</Option></Select>
                             </Form.Item>
-                            <Form.Item
-                                label="ID de Categoría"
-                                name="categoryIds"
-                                rules={[{ required: true, message: 'Ingrese el ID de la categoría' }]}
-                                help="ID numérico de la categoría a procesar"
-                            >
+                            <Form.Item label="ID de Categoría" name="categoryIds" rules={[{ required: true, message: 'Ingrese el ID de la categoría' }]} help="ID numérico de la categoría a procesar">
                                 <InputNumber style={{ width: '100%' }} min={1} placeholder="Ej: 8" />
                             </Form.Item>
                             <Form.Item>
-                                <Button
-                                    type="primary"
-                                    htmlType="submit"
-                                    loading={loading}
-                                    icon={<PlayCircleOutlined />}
-                                    block
-                                >
-                                    Ejecutar
-                                </Button>
+                                <Button type="primary" htmlType="submit" loading={loading} icon={<PlayCircleOutlined />} block>Ejecutar</Button>
                             </Form.Item>
                         </Form>
                     </Space>
