@@ -3,6 +3,7 @@ name: Deploy to Firebase Hosting on PR
   pull_request:
     branches:
       - main
+      - dev
 
 jobs:
   build_and_deploy:
