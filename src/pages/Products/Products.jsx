@@ -4,13 +4,14 @@ import { ReloadOutlined, PlusOutlined } from '@ant-design/icons';
 import { productsAPI } from '../../services/api';
 import { getApiErrorMessage } from '../../utils/apiError';
 
+import HelpPanel from '../../components/common/HelpPanel';
 import ProductsFilter from './ProductsFilter';
 import ProductsTable from './ProductsTable';
 import EditProductModal from './EditProductModal';
 import PriceUpdateModal from './PriceUpdateModal';
 import CreateProductModal from './CreateProductModal';
 
-const { Title } = Typography;
+const { Paragraph, Text, Title } = Typography;
 
 const Products = () => {
     const [products, setProducts] = useState([]);
@@ -166,6 +167,19 @@ const Products = () => {
                     </Button>
                 </Space>
             </div>
+
+            <HelpPanel title="Cómo usar Gestión de Productos" storageKey="help-products-page">
+                <Paragraph style={{ marginBottom: 8 }}>
+                    Esta pantalla permite consultar productos disponibles, buscar por nombre/código/marca y administrar productos manuales.
+                </Paragraph>
+                <ul style={{ marginBottom: 0, paddingLeft: 20 }}>
+                    <li>Usá los filtros para encontrar productos por categoría, rango de precio o texto.</li>
+                    <li><Text strong>Nuevo Producto</Text> crea un producto manual con los datos e imagen cargados desde el admin.</li>
+                    <li>Editar producto permite actualizar datos del producto seleccionado.</li>
+                    <li>Actualizar precio permite modificar rápidamente el precio de lista.</li>
+                    <li>Algunos datos del catálogo dependen de sincronizaciones externas, por lo que pueden actualizarse desde Procesos/Catálogo.</li>
+                </ul>
+            </HelpPanel>
 
             <Card style={{ marginBottom: 16 }}>
                 <ProductsFilter
