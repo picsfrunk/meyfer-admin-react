@@ -18,7 +18,6 @@ const SEARCH_DEBOUNCE_MS = 400;
 const Products = () => {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [maxPrice, setMaxPrice] = useState(100000);
     const [pagination, setPagination] = useState({
         current: 1,
         pageSize: DEFAULT_PAGE_SIZE,
@@ -35,21 +34,8 @@ const Products = () => {
     // Filtros
     const [selectedCategory, setSelectedCategory] = useState('');
     const [selectedBrand, setSelectedBrand] = useState('');
-    const [priceRange, setPriceRange] = useState([0, 100000]);
     const [searchText, setSearchText] = useState('');
     const [debouncedSearchText, setDebouncedSearchText] = useState('');
-
-    const getMaxPriceFromProducts = (productsList) => {
-        const numericPrices = productsList
-            .map((product) => Number(product?.final_price ?? 0))
-            .filter((value) => Number.isFinite(value) && value >= 0);
-
-        if (numericPrices.length === 0) {
-            return 100000;
-        }
-
-        return Math.max(100000, Math.ceil(Math.max(...numericPrices)));
-    };
 
     const buildProductParams = useCallback((page, limit) => {
         const params = { page, limit };
@@ -87,10 +73,6 @@ const Products = () => {
                 total,
                 totalPages,
             });
-
-            const detectedMaxPrice = getMaxPriceFromProducts(loadedProducts);
-            setMaxPrice(detectedMaxPrice);
-            setPriceRange([0, detectedMaxPrice]);
         } catch (error) {
             console.error('Error loading products:', error);
             setProducts([]);
@@ -99,8 +81,6 @@ const Products = () => {
                 total: 0,
                 totalPages: 1,
             }));
-            setMaxPrice(100000);
-            setPriceRange([0, 100000]);
             message.error(getApiErrorMessage(error, 'No se pudieron cargar los productos'));
         } finally {
             setLoading(false);
@@ -178,10 +158,6 @@ const Products = () => {
         goToFirstPage();
     };
 
-    const handlePriceRangeChange = (value) => {
-        setPriceRange(value);
-    };
-
     const handleTableChange = (nextPagination) => {
         setPagination((currentPagination) => ({
             ...currentPagination,
@@ -189,15 +165,6 @@ const Products = () => {
             pageSize: nextPagination.pageSize,
         }));
     };
-
-    const filteredProducts = products.filter((product) => {
-        if (!product) return false;
-
-        return (
-            (product.final_price || 0) >= priceRange[0] &&
-            (product.final_price || 0) <= priceRange[1]
-        );
-    });
 
     useEffect(() => {
         const timeoutId = window.setTimeout(() => {
@@ -234,7 +201,7 @@ const Products = () => {
                     Esta pantalla permite consultar productos disponibles, buscar por nombre/código/marca y administrar productos manuales.
                 </Paragraph>
                 <ul style={{ marginBottom: 0, paddingLeft: 20 }}>
-                    <li>Usá los filtros para encontrar productos por categoría, rango de precio o texto.</li>
+                    <li>Usá los filtros para encontrar productos por categoría, marca o texto.</li>
                     <li><Text strong>Nuevo Producto</Text> crea un producto manual con los datos e imagen cargados desde el admin.</li>
                     <li>Editar producto permite actualizar datos del producto seleccionado.</li>
                     <li>Actualizar precio permite modificar rápidamente el precio de lista.</li>
@@ -246,14 +213,12 @@ const Products = () => {
                 <ProductsFilter
                     onCategoryChange={handleCategoryChange}
                     onBrandChange={handleBrandChange}
-                    onPriceRangeChange={handlePriceRangeChange}
                     onSearchChange={handleSearchChange}
-                    maxPrice={maxPrice}
                 />
             </Card>
 
             <ProductsTable
-                products={filteredProducts}
+                products={products}
                 loading={loading}
                 pagination={pagination}
                 onTableChange={handleTableChange}
