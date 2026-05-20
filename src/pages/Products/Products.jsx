@@ -90,10 +90,7 @@ const Products = () => {
 
             const detectedMaxPrice = getMaxPriceFromProducts(loadedProducts);
             setMaxPrice(detectedMaxPrice);
-            setPriceRange((currentRange) => [
-                Math.min(currentRange[0], detectedMaxPrice),
-                Math.min(currentRange[1], detectedMaxPrice),
-            ]);
+            setPriceRange([0, detectedMaxPrice]);
         } catch (error) {
             console.error('Error loading products:', error);
             setProducts([]);
