@@ -6,6 +6,7 @@ import { getApiErrorMessage } from '../../utils/apiError';
 
 const ProductsFilter = ({
     onCategoryChange,
+    onBrandChange,
     onPriceRangeChange,
     onSearchChange,
     maxPrice = 100000,
@@ -59,7 +60,7 @@ const ProductsFilter = ({
         { label: 'Todas las categorías', value: '' },
         ...categories.map(cat => ({
             label: cat.category_name || cat.name || cat,
-            value: cat.category_name || cat.name || cat
+            value: cat.category_id ?? cat.id ?? cat.category_name ?? cat.name ?? cat,
         }))
     ];
 
@@ -78,7 +79,7 @@ const ProductsFilter = ({
 
     const handleBrandChange = (value) => {
         setSelectedBrand(value);
-        // TODO: Implementar filtro por marca en el componente padre
+        onBrandChange(value);
     };
 
     const handlePriceRangeChange = (value) => {
@@ -98,6 +99,7 @@ const ProductsFilter = ({
         setSearchText('');
 
         onCategoryChange('');
+        onBrandChange('');
         onPriceRangeChange([0, maxPrice]);
         onSearchChange('');
     };
