@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, Button, Space, Typography, message } from 'antd';
 import { ReloadOutlined, PlusOutlined } from '@ant-design/icons';
 import { productsAPI } from '../../services/api';
@@ -12,11 +12,18 @@ import PriceUpdateModal from './PriceUpdateModal';
 import CreateProductModal from './CreateProductModal';
 
 const { Paragraph, Text, Title } = Typography;
+const DEFAULT_PAGE_SIZE = 50;
+const SEARCH_DEBOUNCE_MS = 400;
 
 const Products = () => {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [maxPrice, setMaxPrice] = useState(100000);
+    const [pagination, setPagination] = useState({
+        current: 1,
+        pageSize: DEFAULT_PAGE_SIZE,
+        total: 0,
+        totalPages: 1,
+    });
 
     // Modales
     const [editModalVisible, setEditModalVisible] = useState(false);
@@ -25,64 +32,66 @@ const Products = () => {
     const [selectedProduct, setSelectedProduct] = useState(null);
 
     // Filtros
-    const [selectedCategory, setSelectedCategory] = useState(null);
-    const [priceRange, setPriceRange] = useState([0, 100000]);
+    const [selectedCategory, setSelectedCategory] = useState('');
+    const [selectedBrand, setSelectedBrand] = useState('');
     const [searchText, setSearchText] = useState('');
+    const [debouncedSearchText, setDebouncedSearchText] = useState('');
 
-    const getMaxPriceFromProducts = (productsList) => {
-        const numericPrices = productsList
-            .map((product) => Number(product?.final_price ?? 0))
-            .filter((value) => Number.isFinite(value) && value >= 0);
+    const buildProductParams = useCallback((page, limit) => {
+        const params = { page, limit };
+        const normalizedSearch = debouncedSearchText.trim();
 
-        if (numericPrices.length === 0) {
-            return 100000;
+        if (selectedCategory) {
+            params.category_id = selectedCategory;
         }
 
-        return Math.max(100000, Math.ceil(Math.max(...numericPrices)));
-    };
+        if (selectedBrand) {
+            params.brand = selectedBrand;
+        }
 
-    const loadProducts = async () => {
+        if (normalizedSearch) {
+            params.search = normalizedSearch;
+        }
+
+        return params;
+    }, [debouncedSearchText, selectedBrand, selectedCategory]);
+
+    const loadProducts = useCallback(async (page = pagination.current, limit = pagination.pageSize) => {
         setLoading(true);
         try {
-            const limit = 50;
-            const { data: firstPageData } = await productsAPI.getAll({ page: 1, limit });
+            const { data } = await productsAPI.getAll(buildProductParams(page, limit));
+            const loadedProducts = Array.isArray(data?.products) ? data.products : [];
+            const total = Number(data?.total) || loadedProducts.length;
+            const totalPages = Number(data?.totalPages) || 1;
+            const currentPage = Number(data?.page) || page;
+            const currentPageSize = Number(data?.limit) || limit;
 
-            const firstPageProducts = Array.isArray(firstPageData?.products) ? firstPageData.products : [];
-            const totalPages = Number(firstPageData?.totalPages) || 1;
-
-            if (totalPages <= 1) {
-                setProducts(firstPageProducts);
-                const detectedMaxPrice = getMaxPriceFromProducts(firstPageProducts);
-                setMaxPrice(detectedMaxPrice);
-                setPriceRange([0, detectedMaxPrice]);
-                return;
-            }
-
-            const pageRequests = [];
-            for (let page = 2; page <= totalPages; page += 1) {
-                pageRequests.push(productsAPI.getAll({ page, limit }));
-            }
-
-            const pageResponses = await Promise.all(pageRequests);
-            const remainingProducts = pageResponses.flatMap(({ data }) =>
-                Array.isArray(data?.products) ? data.products : []
-            );
-
-            const allProducts = [...firstPageProducts, ...remainingProducts];
-            setProducts(allProducts);
-
-            const detectedMaxPrice = getMaxPriceFromProducts(allProducts);
-            setMaxPrice(detectedMaxPrice);
-            setPriceRange([0, detectedMaxPrice]);
+            setProducts(loadedProducts);
+            setPagination({
+                current: currentPage,
+                pageSize: currentPageSize,
+                total,
+                totalPages,
+            });
         } catch (error) {
             console.error('Error loading products:', error);
             setProducts([]);
-            setMaxPrice(100000);
-            setPriceRange([0, 100000]);
+            setPagination((currentPagination) => ({
+                ...currentPagination,
+                total: 0,
+                totalPages: 1,
+            }));
             message.error(getApiErrorMessage(error, 'No se pudieron cargar los productos'));
         } finally {
             setLoading(false);
         }
+    }, [buildProductParams, pagination.current, pagination.pageSize]);
+
+    const goToFirstPage = () => {
+        setPagination((currentPagination) => ({
+            ...currentPagination,
+            current: 1,
+        }));
     };
 
     const handleCreateProduct = () => {
@@ -122,7 +131,11 @@ const Products = () => {
     const handleDelete = async (productId) => {
         try {
             await productsAPI.delete(productId);
-            setProducts(products.filter((p) => p.product_id !== productId));
+            setProducts((currentProducts) => currentProducts.filter((p) => p.product_id !== productId));
+            setPagination((currentPagination) => ({
+                ...currentPagination,
+                total: Math.max(currentPagination.total - 1, 0),
+            }));
             message.success('Producto eliminado correctamente');
         } catch (error) {
             message.error(getApiErrorMessage(error, 'Error al eliminar el producto'));
@@ -130,25 +143,40 @@ const Products = () => {
         }
     };
 
-    // Filtrado de productos
-    const filteredProducts = products.filter((product) => {
-        if (!product) return false;
+    const handleCategoryChange = (categoryId) => {
+        setSelectedCategory(categoryId);
+        goToFirstPage();
+    };
 
-        const matchesCategory =
-            !selectedCategory || selectedCategory === '' || product.category_name === selectedCategory;
-        const matchesPrice =
-            (product.final_price || 0) >= priceRange[0] && (product.final_price || 0) <= priceRange[1];
-        const matchesSearch =
-            (product.display_name || '').toLowerCase().includes(searchText.toLowerCase()) ||
-            (product.product_id || '').toLowerCase().includes(searchText.toLowerCase()) ||
-            (product.brand || '').toLowerCase().includes(searchText.toLowerCase());
+    const handleBrandChange = (brand) => {
+        setSelectedBrand(brand);
+        goToFirstPage();
+    };
 
-        return matchesCategory && matchesPrice && matchesSearch;
-    });
+    const handleSearchChange = (value) => {
+        setSearchText(value);
+        goToFirstPage();
+    };
+
+    const handleTableChange = (nextPagination) => {
+        setPagination((currentPagination) => ({
+            ...currentPagination,
+            current: nextPagination.current,
+            pageSize: nextPagination.pageSize,
+        }));
+    };
+
+    useEffect(() => {
+        const timeoutId = window.setTimeout(() => {
+            setDebouncedSearchText(searchText);
+        }, SEARCH_DEBOUNCE_MS);
+
+        return () => window.clearTimeout(timeoutId);
+    }, [searchText]);
 
     useEffect(() => {
         loadProducts();
-    }, []);
+    }, [loadProducts]);
 
     return (
         <div>
@@ -160,7 +188,7 @@ const Products = () => {
                     </Button>
                     <Button
                         icon={<ReloadOutlined />}
-                        onClick={loadProducts}
+                        onClick={() => loadProducts()}
                         loading={loading}
                     >
                         Actualizar
@@ -173,7 +201,7 @@ const Products = () => {
                     Esta pantalla permite consultar productos disponibles, buscar por nombre/código/marca y administrar productos manuales.
                 </Paragraph>
                 <ul style={{ marginBottom: 0, paddingLeft: 20 }}>
-                    <li>Usá los filtros para encontrar productos por categoría, rango de precio o texto.</li>
+                    <li>Usá los filtros para encontrar productos por categoría, marca o texto.</li>
                     <li><Text strong>Nuevo Producto</Text> crea un producto manual con los datos e imagen cargados desde el admin.</li>
                     <li>Editar producto permite actualizar datos del producto seleccionado.</li>
                     <li>Actualizar precio permite modificar rápidamente el precio de lista.</li>
@@ -183,16 +211,17 @@ const Products = () => {
 
             <Card style={{ marginBottom: 16 }}>
                 <ProductsFilter
-                    onCategoryChange={setSelectedCategory}
-                    onPriceRangeChange={setPriceRange}
-                    onSearchChange={setSearchText}
-                    maxPrice={maxPrice}
+                    onCategoryChange={handleCategoryChange}
+                    onBrandChange={handleBrandChange}
+                    onSearchChange={handleSearchChange}
                 />
             </Card>
 
             <ProductsTable
-                products={filteredProducts}
+                products={products}
                 loading={loading}
+                pagination={pagination}
+                onTableChange={handleTableChange}
                 onEdit={handleEdit}
                 onUpdatePrice={handleUpdatePrice}
                 onDelete={handleDelete}
