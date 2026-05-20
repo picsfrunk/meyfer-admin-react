@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Space, Tag, Popconfirm, Card, Typography } from 'antd';
+import { Table, Button, Space, Tag, Popconfirm, Card, Typography, Pagination } from 'antd';
 import {
     EditOutlined,
     DeleteOutlined,
@@ -8,7 +8,15 @@ import {
 
 const { Text } = Typography;
 
-const ProductsTable = ({ products, loading, onEdit, onUpdatePrice, onDelete }) => {
+const ProductsTable = ({
+    products,
+    loading,
+    pagination,
+    onTableChange,
+    onEdit,
+    onUpdatePrice,
+    onDelete,
+}) => {
     const [isMobile, setIsMobile] = useState(false);
 
     useEffect(() => {
@@ -21,6 +29,14 @@ const ProductsTable = ({ products, loading, onEdit, onUpdatePrice, onDelete }) =
 
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
+
+    const tablePagination = {
+        current: pagination.current,
+        pageSize: pagination.pageSize,
+        total: pagination.total,
+        showSizeChanger: true,
+        showTotal: (total) => `${total} productos`,
+    };
 
     // Vista de tabla para desktop
     const columns = [
@@ -194,6 +210,11 @@ const ProductsTable = ({ products, loading, onEdit, onUpdatePrice, onDelete }) =
                     {loading ? 'Cargando productos...' : 'No hay productos disponibles'}
                 </div>
             )}
+            <Pagination
+                {...tablePagination}
+                onChange={(current, pageSize) => onTableChange({ current, pageSize })}
+                style={{ marginTop: 16, textAlign: 'center' }}
+            />
         </div>
     ) : (
         <div>
@@ -203,7 +224,8 @@ const ProductsTable = ({ products, loading, onEdit, onUpdatePrice, onDelete }) =
                 dataSource={products}
                 loading={loading}
                 rowKey="_id"
-                pagination={{ pageSize: 10, showSizeChanger: true }}
+                pagination={tablePagination}
+                onChange={onTableChange}
                 scroll={{ x: 1200 }}
                 locale={{
                     emptyText: loading ? 'Cargando productos...' : 'No hay productos disponibles'
