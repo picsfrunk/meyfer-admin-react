@@ -20,6 +20,13 @@ import OrderModal from './OrderModal';
 
 const { Paragraph, Text, Title } = Typography;
 
+const getResendSuccessMessage = (recipients = {}) => {
+    if (recipients.customer && recipients.admin) return 'Correos reenviados correctamente';
+    if (recipients.customer) return 'Correo reenviado al cliente correctamente';
+    if (recipients.admin) return 'Correo reenviado al admin correctamente';
+    return 'Correo reenviado correctamente';
+};
+
 const Orders = () => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -175,13 +182,14 @@ const Orders = () => {
         }
     };
 
-    const handleResendEmail = async (orderId) => {
+    const handleResendEmail = async (orderId, recipients) => {
         try {
-            await ordersAPI.resendOrderEmail(orderId);
-            message.success('Correo reenviado correctamente');
+            await ordersAPI.resendOrderEmail(orderId, recipients);
+            message.success(getResendSuccessMessage(recipients));
         } catch (error) {
             message.error(getApiErrorMessage(error, `Error al reenviar correo de pedido ${orderId}`));
             console.error(error);
+            throw error;
         }
     };
 
