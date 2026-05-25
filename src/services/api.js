@@ -105,7 +105,8 @@ export const ordersAPI = {
     updatePricing: (id, data) => api.patch(`/orders/${id}/pricing`, data),
     delete: (id) => api.delete(`/orders/${id}`),
     updateStatus: (id, status) => api.patch(`/orders/${id}/status`, { status }),
-    resendOrderEmail: (id) => api.post(`/orders/${id}/resend-emails`),
+    resendOrderEmail: (id, recipients = { admin: true, customer: true }) =>
+        api.post(`/orders/${id}/resend-emails`, recipients),
     updateDelivery: (id, delivery) =>
         api.patch(`/orders/${id}/delivery`, { delivery }),
     refreshOrderValues: async (id) => {

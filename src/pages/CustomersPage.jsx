@@ -24,6 +24,7 @@ import {
     ReloadOutlined,
     SyncOutlined,
     FileTextOutlined,
+    MailOutlined,
 } from '@ant-design/icons';
 import { customersAPI, ordersAPI } from '../services/api';
 import { getApiErrorMessage } from '../utils/apiError';
@@ -41,6 +42,13 @@ import OrdersTable from './Orders/OrdersTable';
 import OrderModal from './Orders/OrderModal';
 
 const { Paragraph, Text, Title } = Typography;
+
+const getResendSuccessMessage = (recipients = {}) => {
+    if (recipients.customer && recipients.admin) return 'Correos reenviados correctamente';
+    if (recipients.customer) return 'Correo reenviado al cliente correctamente';
+    if (recipients.admin) return 'Correo reenviado al admin correctamente';
+    return 'Correo reenviado correctamente';
+};
 
 const CustomerForm = ({ form }) => (
     <Form form={form} layout="vertical">
@@ -369,14 +377,67 @@ const CustomersPage = () => {
         }
     };
 
-    const handleResendEmail = async (orderId) => {
+    const resendEmailToRecipients = async (orderId, recipients) => {
         try {
-            await ordersAPI.resendOrderEmail(orderId);
-            message.success('Correo reenviado correctamente');
+            await ordersAPI.resendOrderEmail(orderId, recipients);
+            message.success(getResendSuccessMessage(recipients));
         } catch (error) {
             message.error(getApiErrorMessage(error, `Error al reenviar correo de pedido ${orderId}`));
             console.error(error);
+            throw error;
         }
+    };
+
+    const handleResendEmail = async (orderId, recipients) => {
+        if (recipients) {
+            await resendEmailToRecipients(orderId, recipients);
+            return;
+        }
+
+        const hasCustomerEmail = Boolean(selectedOrder?.customerInfo?.email);
+        Modal.confirm({
+            title: 'Reenviar email de confirmación',
+            icon: <MailOutlined />,
+            content: (
+                <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                    <Text>Elegí a quién querés reenviar la confirmación del pedido.</Text>
+                    {!hasCustomerEmail ? (
+                        <Text type="warning">Este pedido no tiene email de cliente cargado.</Text>
+                    ) : null}
+                    <Space wrap>
+                        <Button
+                            disabled={!hasCustomerEmail}
+                            onClick={async () => {
+                                await resendEmailToRecipients(orderId, { customer: true, admin: false });
+                                Modal.destroyAll();
+                            }}
+                        >
+                            Reenviar al cliente
+                        </Button>
+                        <Button
+                            onClick={async () => {
+                                await resendEmailToRecipients(orderId, { customer: false, admin: true });
+                                Modal.destroyAll();
+                            }}
+                        >
+                            Reenviar al admin
+                        </Button>
+                        <Button
+                            type="primary"
+                            disabled={!hasCustomerEmail}
+                            onClick={async () => {
+                                await resendEmailToRecipients(orderId, { customer: true, admin: true });
+                                Modal.destroyAll();
+                            }}
+                        >
+                            Reenviar a ambos
+                        </Button>
+                    </Space>
+                </Space>
+            ),
+            okButtonProps: { style: { display: 'none' } },
+            cancelText: 'Cerrar',
+        });
     };
 
     const handlePricingUpdate = async (orderId, payload) => {
