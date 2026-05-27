@@ -10,7 +10,7 @@ import Config from './pages/Config';
 import Catalog from './pages/Catalog';
 import Orders from './pages/Orders/Orders.jsx';
 import Products from './pages/Products/Products.jsx';
-import JobsPageActions from './pages/JobsPageActions.jsx';
+import JobsPage from './pages/JobsPage.jsx';
 import CustomersPage from './pages/CustomersPage';
 import HelpPage from './pages/HelpPage';
 
@@ -83,7 +83,7 @@ function App() {
                             element={
                                 <ProtectedRoute>
                                     <DashboardLayout>
-                                        <JobsPageActions />
+                                        <JobsPage />
                                     </DashboardLayout>
                                 </ProtectedRoute>
                             }
