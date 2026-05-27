@@ -21,7 +21,9 @@ import {
     ArrowDownOutlined,
     UnorderedListOutlined,
     WarningOutlined,
-    StopOutlined
+    StopOutlined,
+    CloseOutlined,
+    DeleteOutlined
 } from '@ant-design/icons';
 import { scraperAPI } from '../services/scraperAPI';
 import { getApiErrorMessage } from '../utils/apiError';
@@ -481,7 +483,14 @@ const PriceCheckDetailModal = ({ id, onClose }) => {
 // TAB: COLA (estado en tiempo real)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const QueueTab = ({ statusData, stats, refreshing, onRefresh }) => {
+const QueueTab = ({
+    statusData,
+    stats,
+    onCancelJob,
+    onPurgeQueue,
+    cancelingJobId,
+    purgingQueue,
+}) => {
     const [elapsed, setElapsed] = useState(statusData?.running?.elapsedMs ?? 0);
 
     useEffect(() => {
@@ -492,6 +501,8 @@ const QueueTab = ({ statusData, stats, refreshing, onRefresh }) => {
     }, [statusData?.running]);
 
     const running = statusData?.running;
+    const runningId = running?.id ?? running?.jobId;
+    const pendingJobs = statusData?.pendingJobs ?? [];
 
     return (
         <div>
@@ -505,6 +516,20 @@ const QueueTab = ({ statusData, stats, refreshing, onRefresh }) => {
                         }
                         <Text strong>Estado actual</Text>
                     </Space>
+                }
+                extra={
+                    runningId ? (
+                        <Button
+                            danger
+                            size="small"
+                            icon={<StopOutlined />}
+                            loading={cancelingJobId === runningId}
+                            disabled={!!cancelingJobId || purgingQueue}
+                            onClick={() => onCancelJob(runningId, 'running')}
+                        >
+                            Detener job actual
+                        </Button>
+                    ) : null
                 }
                 size="small"
                 style={{ marginBottom: 16 }}
@@ -544,6 +569,20 @@ const QueueTab = ({ statusData, stats, refreshing, onRefresh }) => {
                         )}
                     </Space>
                 }
+                extra={
+                    statusData?.pending > 0 ? (
+                        <Button
+                            danger
+                            size="small"
+                            icon={<DeleteOutlined />}
+                            loading={purgingQueue}
+                            disabled={!!cancelingJobId}
+                            onClick={onPurgeQueue}
+                        >
+                            Borrar cola
+                        </Button>
+                    ) : null
+                }
                 size="small"
                 style={{ marginBottom: 16 }}
             >
@@ -551,8 +590,8 @@ const QueueTab = ({ statusData, stats, refreshing, onRefresh }) => {
                     <Empty description="Cola vacía" image={Empty.PRESENTED_IMAGE_SIMPLE} />
                 ) : (
                     <Table
-                        dataSource={statusData.pendingJobs}
-                        rowKey="id"
+                        dataSource={pendingJobs}
+                        rowKey={(job) => job.id ?? job.jobId}
                         pagination={false}
                         size="small"
                         columns={[
@@ -581,6 +620,29 @@ const QueueTab = ({ statusData, stats, refreshing, onRefresh }) => {
                                 dataIndex: 'waitingMs',
                                 key: 'waitingMs',
                                 render: formatDuration,
+                            },
+                            {
+                                title: '',
+                                key: 'action',
+                                width: 48,
+                                align: 'center',
+                                render: (_, job) => {
+                                    const jobId = job.id ?? job.jobId;
+                                    return (
+                                        <Tooltip title="Cancelar job en cola">
+                                            <Button
+                                                danger
+                                                type="text"
+                                                size="small"
+                                                icon={<CloseOutlined />}
+                                                aria-label="Cancelar job en cola"
+                                                loading={cancelingJobId === jobId}
+                                                disabled={!jobId || !!cancelingJobId || purgingQueue}
+                                                onClick={() => onCancelJob(jobId, 'queued')}
+                                            />
+                                        </Tooltip>
+                                    );
+                                },
                             },
                         ]}
                     />
@@ -983,6 +1045,8 @@ const JobsPage = () => {
     const [loading, setLoading]       = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [triggerOpen, setTriggerOpen] = useState(false);
+    const [cancelingJobId, setCancelingJobId] = useState(null);
+    const [purgingQueue, setPurgingQueue] = useState(false);
 
     const fetchQueue = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
@@ -1011,6 +1075,55 @@ const JobsPage = () => {
         return () => clearInterval(interval);
     }, [statusData?.isRunning, fetchQueue]);
 
+    const cancelJob = async (jobId) => {
+        if (!jobId) return;
+        setCancelingJobId(jobId);
+        try {
+            await scraperAPI.cancelJob(jobId);
+            message.success('Job cancelado');
+            fetchQueue(true);
+        } catch (error) {
+            message.error(getApiErrorMessage(error, 'Error al cancelar el job'));
+        } finally {
+            setCancelingJobId(null);
+        }
+    };
+
+    const handleCancelJob = (jobId, location) => {
+        Modal.confirm({
+            title: location === 'running' ? 'Detener job actual' : 'Cancelar job en cola',
+            content: location === 'running'
+                ? 'El job en ejecución se marcará para cancelación.'
+                : 'El job pendiente se eliminará de la cola.',
+            okText: location === 'running' ? 'Detener' : 'Cancelar job',
+            okButtonProps: { danger: true },
+            cancelText: 'Volver',
+            onOk: () => cancelJob(jobId),
+        });
+    };
+
+    const handlePurgeQueue = () => {
+        Modal.confirm({
+            title: 'Borrar toda la cola',
+            content: 'Se eliminarán todos los jobs pendientes. El job en ejecución no se interrumpe.',
+            okText: 'Borrar cola',
+            okButtonProps: { danger: true },
+            cancelText: 'Volver',
+            onOk: async () => {
+                setPurgingQueue(true);
+                try {
+                    await scraperAPI.purgeQueue();
+                    message.success('Cola borrada');
+                    fetchQueue(true);
+                } catch (error) {
+                    message.error(getApiErrorMessage(error, 'Error al borrar la cola'));
+                } finally {
+                    setPurgingQueue(false);
+                }
+            },
+        });
+    };
+
     if (loading) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
@@ -1038,8 +1151,10 @@ const JobsPage = () => {
                 <QueueTab
                     statusData={statusData}
                     stats={stats}
-                    refreshing={refreshing}
-                    onRefresh={() => fetchQueue(true)}
+                    onCancelJob={handleCancelJob}
+                    onPurgeQueue={handlePurgeQueue}
+                    cancelingJobId={cancelingJobId}
+                    purgingQueue={purgingQueue}
                 />
             ),
         },
