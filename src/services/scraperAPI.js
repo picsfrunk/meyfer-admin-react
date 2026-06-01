@@ -29,7 +29,7 @@ export const scraperAPI = {
      * @param {number}     [params.page=1]
      * @param {number}     [params.limit=20]
      * @param {'enqueued'|'running'|'completed'|'failed'} [params.status]
-     * @param {'sitemapScraper'|'categoryScraper'|'sitemapAnalysis'|'priceCheck'} [params.type]
+     * @param {'sitemapScraper'|'categoryScraper'|'sitemapAnalysis'|'priceCheck'|'categoriesRestore'|'categoriesReorganize'} [params.type]
      */
     getHistory: (params = {}) => api.get('/admin/scraper/history', { params }),
 
@@ -56,6 +56,23 @@ export const scraperAPI = {
      * Dispara el análisis de sitemap (sin scraping).
      */
     triggerAnalysis: () => api.post('/admin/scraper/analyze', {}),
+
+    /**
+     * POST /admin/scraper/categories/restore-official
+     * Restaura la configuración oficial de categorías del scraper.
+     */
+    restoreOfficialCategories: () =>
+        api.post('/admin/scraper/categories/restore-official', {}),
+
+    /**
+     * POST /admin/scraper/categories/reorganize
+     * Reorganiza categorías. Con dryRun=true simula sin modificar productos.
+     *
+     * @param {Object} params
+     * @param {boolean} [params.dryRun=true]
+     */
+    reorganizeCategories: ({ dryRun = true } = {}) =>
+        api.post('/admin/scraper/categories/reorganize', { dryRun }),
 
     // ── Cancelación ───────────────────────────────────────────────────────
 

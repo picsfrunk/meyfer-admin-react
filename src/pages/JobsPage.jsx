@@ -61,6 +61,8 @@ const JOB_TYPE_LABELS = {
     categoryScraper: 'Category Scraper',
     sitemapAnalysis: 'Análisis Sitemap',
     priceCheck:      'Price Check',
+    categoriesRestore: 'Restaurar categorías',
+    categoriesReorganize: 'Reorganizar categorías',
 };
 
 const JOB_TYPE_COLORS = {
@@ -68,7 +70,11 @@ const JOB_TYPE_COLORS = {
     categoryScraper: 'purple',
     sitemapAnalysis: 'cyan',
     priceCheck:      'orange',
+    categoriesRestore: 'geekblue',
+    categoriesReorganize: 'volcano',
 };
+
+const CATEGORY_MAINTENANCE_TYPES = ['categoriesRestore', 'categoriesReorganize'];
 
 const STATUS_CONFIG = {
     enqueued:  { color: 'default',    icon: <HourglassOutlined />,  label: 'En cola'    },
@@ -89,6 +95,12 @@ const StatusTag = ({ status }) => {
  * Para otros tipos no muestra nada.
  */
 const ScopeTag = ({ type, params }) => {
+    if (type === 'categoriesReorganize') {
+        return params?.dryRun === false
+            ? <Tag color="volcano">Aplicado</Tag>
+            : <Tag color="green">Simulación</Tag>;
+    }
+
     if (type !== 'categoryScraper') return null;
     const ids = params?.categoryIds;
     if (!ids || ids === 'all' || (Array.isArray(ids) && ids.length === 0)) {
@@ -165,6 +177,50 @@ const TriggerModal = ({ open, onClose, onSuccess }) => {
         }
     };
 
+    const handleMaintenanceJob = async (key, request, successMessage) => {
+        setLoading(key);
+        try {
+            const res = await request();
+            const queued = res.data?.status === 'queued';
+            message.success(
+                queued && res.data?.position
+                    ? `Encolado en posición ${res.data.position}`
+                    : successMessage
+            );
+            onSuccess();
+            onClose();
+        } catch (err) {
+            message.error(getApiErrorMessage(err, 'Error al ejecutar mantenimiento'));
+        } finally {
+            setLoading(null);
+        }
+    };
+
+    const handleApplyReorganization = () => {
+        Modal.confirm({
+            title: 'Aplicar reorganización de categorías',
+            content: (
+                <Space direction="vertical" size={8}>
+                    <Text>
+                        Esta acción modifica categorías reales en productos, incluyendo
+                        <Text code>category_id</Text> / <Text code>category_name</Text>.
+                    </Text>
+                    <Text type="secondary">
+                        No debería tocar precios ni imágenes, pero sí modifica categorías.
+                    </Text>
+                </Space>
+            ),
+            okText: 'Aplicar reorganización',
+            okButtonProps: { danger: true },
+            cancelText: 'Volver',
+            onOk: () => handleMaintenanceJob(
+                'categoriesReorganizeApply',
+                () => scraperAPI.reorganizeCategories({ dryRun: false }),
+                'Reorganización de categorías iniciada'
+            ),
+        });
+    };
+
     const actions = [
         {
             key: 'sitemapScraper',
@@ -197,6 +253,38 @@ const TriggerModal = ({ open, onClose, onSuccess }) => {
             icon: <DollarOutlined />,
             danger: false,
             onClick: handlePriceCheck,
+        },
+        {
+            key: 'categoriesRestore',
+            label: 'Restaurar categorías oficiales',
+            desc: 'Restaura la configuración oficial de categorías del scraper. No debería tocar precios ni imágenes.',
+            icon: <SyncOutlined />,
+            danger: false,
+            onClick: () => handleMaintenanceJob(
+                'categoriesRestore',
+                scraperAPI.restoreOfficialCategories,
+                'Restauración de categorías iniciada'
+            ),
+        },
+        {
+            key: 'categoriesReorganizeDryRun',
+            label: 'Simular reorganización de categorías',
+            desc: 'Acción segura recomendada: analiza posibles cambios sin modificar productos.',
+            icon: <BarChartOutlined />,
+            danger: false,
+            onClick: () => handleMaintenanceJob(
+                'categoriesReorganizeDryRun',
+                () => scraperAPI.reorganizeCategories({ dryRun: true }),
+                'Simulación de reorganización iniciada'
+            ),
+        },
+        {
+            key: 'categoriesReorganizeApply',
+            label: 'Aplicar reorganización de categorías',
+            desc: 'Aplica cambios reales sobre category_id / category_name. No debería tocar precios ni imágenes.',
+            icon: <WarningOutlined />,
+            danger: true,
+            onClick: handleApplyReorganization,
         },
     ];
 
@@ -264,6 +352,18 @@ const JobDetailModal = ({ job, onClose }) => {
     if (!job) return null;
     const result = job.result;
     const isPriceCheck = job.type === 'priceCheck';
+    const isCategoryMaintenance = CATEGORY_MAINTENANCE_TYPES.includes(job.type);
+    const categoryMode = result?.dryRun ?? job.params?.dryRun;
+    const categoryMetrics = [
+        ['Páginas visitadas', result?.pagesVisited],
+        ['Coincidencias', result?.matched],
+        ['Modificados', result?.modified],
+        ['Dry run', result?.dryRun],
+        ['Procesados', result?.processed],
+        ['Total', result?.total],
+        ['Errores', result?.errors],
+        ['Duración interna', result?.durationMs],
+    ];
 
     return (
         <Modal
@@ -302,6 +402,14 @@ const JobDetailModal = ({ job, onClose }) => {
                         })()}
                     </Descriptions.Item>
                 )}
+                {job.type === 'categoriesReorganize' && (
+                    <Descriptions.Item label="Modo" span={2}>
+                        {categoryMode === false
+                            ? <Tag color="volcano">Aplicado</Tag>
+                            : <Tag color="green">Simulación</Tag>
+                        }
+                    </Descriptions.Item>
+                )}
             </Descriptions>
 
             {result && (
@@ -310,7 +418,33 @@ const JobDetailModal = ({ job, onClose }) => {
                     {result.error && (
                         <Alert type="error" message={result.error} style={{ marginBottom: 12 }} showIcon />
                     )}
-                    {isPriceCheck && result.summary ? (
+                    {isCategoryMaintenance ? (
+                        <Descriptions bordered column={2} size="small">
+                            {job.type === 'categoriesReorganize' && (
+                                <Descriptions.Item label="Modo">
+                                    {categoryMode === false
+                                        ? <Tag color="volcano">Aplicado</Tag>
+                                        : <Tag color="green">Simulación</Tag>
+                                    }
+                                </Descriptions.Item>
+                            )}
+                            {categoryMetrics
+                                .filter(([, value]) => value != null)
+                                .map(([label, value]) => (
+                                    <Descriptions.Item key={label} label={label}>
+                                        {label === 'Dry run' ? (
+                                            value ? <Tag color="green">Sí</Tag> : <Tag color="volcano">No</Tag>
+                                        ) : label === 'Errores' ? (
+                                            <Text type={value > 0 ? 'danger' : 'success'}>{value}</Text>
+                                        ) : label === 'Duración interna' ? (
+                                            formatDuration(value)
+                                        ) : (
+                                            value
+                                        )}
+                                    </Descriptions.Item>
+                                ))}
+                        </Descriptions>
+                    ) : isPriceCheck && result.summary ? (
                         <Descriptions bordered column={2} size="small">
                             <Descriptions.Item label="Cambiados">
                                 <Text type={result.summary.changed > 0 ? 'warning' : 'success'}>
@@ -772,6 +906,26 @@ const ProcesosHistoryTab = () => {
                         </Tooltip>
                     );
                 }
+                if (r.type === 'categoriesRestore') {
+                    return (
+                        <Tooltip title={`${res.errors ?? 0} errores`}>
+                            <Text>{res.modified ?? res.total ?? '—'} modificados</Text>
+                        </Tooltip>
+                    );
+                }
+                if (r.type === 'categoriesReorganize') {
+                    const dryRun = res.dryRun ?? r.params?.dryRun;
+                    return (
+                        <Tooltip title={`${res.errors ?? 0} errores`}>
+                            <Space size={4}>
+                                <Tag color={dryRun === false ? 'volcano' : 'green'}>
+                                    {dryRun === false ? 'Aplicado' : 'Simulación'}
+                                </Tag>
+                                <Text>{res.modified ?? res.matched ?? '—'} cambios</Text>
+                            </Space>
+                        </Tooltip>
+                    );
+                }
                 return (
                     <Tooltip title={`${res.errors ?? 0} errores`}>
                         <Text>{res.total ?? '—'} guardados</Text>
@@ -819,6 +973,8 @@ const ProcesosHistoryTab = () => {
                         { value: 'categoryScraper', label: 'Category Scraper' },
                         { value: 'sitemapAnalysis', label: 'Análisis Sitemap' },
                         { value: 'priceCheck',      label: 'Price Check' },
+                        { value: 'categoriesRestore', label: 'Restaurar categorías' },
+                        { value: 'categoriesReorganize', label: 'Reorganizar categorías' },
                     ]}
                 />
             </Space>
