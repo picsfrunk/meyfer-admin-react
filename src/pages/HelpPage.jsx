@@ -40,7 +40,7 @@ const HelpPage = () => {
         {
             key: 'sync',
             label: '¿Qué hago si el catálogo parece desactualizado?',
-            children: 'Revisá la sección Procesos/Catálogo y ejecutá o monitoreá la sincronización correspondiente. Por ahora la ayuda no profundiza en métodos internos porque ese flujo será simplificado más adelante.',
+            children: 'Revisá Catálogo para iniciar una actualización o Procesos para monitorear el avance y el historial.',
         },
     ];
 
@@ -152,7 +152,7 @@ const HelpPage = () => {
                     Productos y Catálogo permiten revisar información de productos y precios. Procesos permite monitorear actualizaciones y sincronizaciones.
                 </Paragraph>
                 <Paragraph>
-                    Por ahora no se profundiza en tipos internos de scraper o métodos alternativos de actualización, porque ese flujo será simplificado más adelante.
+                    Las actualizaciones pueden tardar varios minutos. Una vez iniciadas, el avance queda visible en Procesos.
                 </Paragraph>
             </HelpSection>
 

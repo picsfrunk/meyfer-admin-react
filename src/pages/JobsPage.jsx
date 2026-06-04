@@ -27,6 +27,7 @@ import {
 } from '@ant-design/icons';
 import { scraperAPI } from '../services/scraperAPI';
 import { getApiErrorMessage } from '../utils/apiError';
+import useAdminDevMode from '../hooks/useAdminDevMode';
 
 const { Title, Text } = Typography;
 
@@ -57,10 +58,10 @@ const formatPrice = (n) =>
         : '—';
 
 const JOB_TYPE_LABELS = {
-    sitemapScraper:  'Sitemap Scraper',
-    categoryScraper: 'Category Scraper',
-    sitemapAnalysis: 'Análisis Sitemap',
-    priceCheck:      'Price Check',
+    sitemapScraper:  'Actualización técnica',
+    categoryScraper: 'Actualizar catálogo',
+    sitemapAnalysis: 'Análisis técnico',
+    priceCheck:      'Revisar precios',
     categoriesRestore: 'Restaurar categorías',
     categoriesReorganize: 'Reorganizar categorías',
 };
@@ -77,7 +78,7 @@ const JOB_TYPE_COLORS = {
 const CATEGORY_MAINTENANCE_TYPES = ['categoriesRestore', 'categoriesReorganize'];
 
 const STATUS_CONFIG = {
-    enqueued:  { color: 'default',    icon: <HourglassOutlined />,  label: 'En cola'    },
+    enqueued:  { color: 'default',    icon: <HourglassOutlined />,  label: 'En espera'  },
     running:   { color: 'processing', icon: <SyncOutlined spin />,  label: 'Ejecutando' },
     completed: { color: 'success',    icon: <CheckCircleOutlined />, label: 'Completado' },
     failed:    { color: 'error',      icon: <CloseCircleOutlined />, label: 'Fallido'    },
@@ -90,9 +91,7 @@ const StatusTag = ({ status }) => {
 };
 
 /**
- * Muestra el alcance del job.
- * Para categoryScraper muestra los IDs de categoría o "Todas".
- * Para otros tipos no muestra nada.
+ * Muestra el alcance del proceso.
  */
 const ScopeTag = ({ type, params }) => {
     if (type === 'categoriesReorganize') {
@@ -122,7 +121,7 @@ const ScopeTag = ({ type, params }) => {
 // TRIGGER MODAL
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TriggerModal = ({ open, onClose, onSuccess }) => {
+const TriggerModal = ({ open, onClose, onSuccess, devMode }) => {
     const [loading, setLoading] = useState(null);
 
     const handleTrigger = async (scraperType) => {
@@ -132,13 +131,13 @@ const TriggerModal = ({ open, onClose, onSuccess }) => {
             const queued = res.data.status === 'queued';
             message.success(
                 queued
-                    ? `Encolado en posición ${res.data.position}`
+                    ? `Proceso agregado a pendientes. Posición ${res.data.position}`
                     : 'Iniciado correctamente'
             );
             onSuccess();
             onClose();
         } catch (err) {
-            message.error(getApiErrorMessage(err, 'Error al ejecutar'));
+            message.error(getApiErrorMessage(err, 'Error al iniciar el proceso'));
         } finally {
             setLoading(null);
         }
@@ -148,7 +147,7 @@ const TriggerModal = ({ open, onClose, onSuccess }) => {
         setLoading('sitemapAnalysis');
         try {
             await scraperAPI.triggerAnalysis();
-            message.success('Análisis iniciado');
+            message.success('Análisis técnico iniciado');
             onSuccess();
             onClose();
         } catch (err) {
@@ -162,11 +161,11 @@ const TriggerModal = ({ open, onClose, onSuccess }) => {
         setLoading('priceCheck');
         try {
             await scraperAPI.triggerPriceCheck();
-            message.success('Verificación de precios iniciada');
+            message.success('Revisión de precios iniciada');
             onSuccess();
             onClose();
         } catch (err) {
-            const errMsg = err.response?.data?.error || 'Error al iniciar price check';
+            const errMsg = err.response?.data?.error || 'Error al iniciar la revisión de precios';
             if (err.response?.status === 503) {
                 message.error(`Backend no configurado: ${errMsg}`);
             } else {
@@ -184,13 +183,13 @@ const TriggerModal = ({ open, onClose, onSuccess }) => {
             const queued = res.data?.status === 'queued';
             message.success(
                 queued && res.data?.position
-                    ? `Encolado en posición ${res.data.position}`
+                    ? `Proceso agregado a pendientes. Posición ${res.data.position}`
                     : successMessage
             );
             onSuccess();
             onClose();
         } catch (err) {
-            message.error(getApiErrorMessage(err, 'Error al ejecutar mantenimiento'));
+            message.error(getApiErrorMessage(err, 'Error al iniciar el mantenimiento'));
         } finally {
             setLoading(null);
         }
@@ -202,11 +201,10 @@ const TriggerModal = ({ open, onClose, onSuccess }) => {
             content: (
                 <Space direction="vertical" size={8}>
                     <Text>
-                        Esta acción modifica categorías reales en productos, incluyendo
-                        <Text code>category_id</Text> / <Text code>category_name</Text>.
+                        Esta acción modifica las categorías reales de productos.
                     </Text>
                     <Text type="secondary">
-                        No debería tocar precios ni imágenes, pero sí modifica categorías.
+                        No modifica precios ni imágenes. Puede tardar varios minutos y quedará registrada en el historial.
                     </Text>
                 </Space>
             ),
@@ -224,32 +222,34 @@ const TriggerModal = ({ open, onClose, onSuccess }) => {
     const actions = [
         {
             key: 'sitemapScraper',
-            label: 'Sincronización por Sitemap',
-            desc: 'Sincronización completa desde el sitemap del sitio',
+            label: 'Actualización por sitemap',
+            desc: 'Herramienta técnica para recorrer el mapa del sitio fuente.',
             icon: <PlayCircleOutlined />,
             danger: true,
+            devOnly: true,
             onClick: () => handleTrigger('sitemapScraper'),
         },
         {
             key: 'categoryScraper',
-            label: 'Sincronización por Categorías',
-            desc: 'Sincronización de productos agrupados por categoría',
+            label: 'Actualizar catálogo',
+            desc: 'Recorre el catálogo del sitio fuente y actualiza la información de productos. Puede tardar varios minutos.',
             icon: <PlayCircleOutlined />,
             danger: true,
             onClick: () => handleTrigger('categoryScraper'),
         },
         {
             key: 'sitemapAnalysis',
-            label: 'Análisis de Sitemap',
-            desc: 'Solo análisis de estructura, sin sincronizar productos',
+            label: 'Analizar sitemap',
+            desc: 'Revisa la estructura del sitio fuente sin actualizar productos.',
             icon: <BarChartOutlined />,
             danger: false,
+            devOnly: true,
             onClick: handleAnalyze,
         },
         {
             key: 'priceCheck',
-            label: 'Verificación de Precios',
-            desc: 'Comparación de precios contra Odoo',
+            label: 'Revisar precios',
+            desc: 'Compara precios actuales con los guardados en el sistema. No elimina productos ni modifica imágenes.',
             icon: <DollarOutlined />,
             danger: false,
             onClick: handlePriceCheck,
@@ -257,7 +257,7 @@ const TriggerModal = ({ open, onClose, onSuccess }) => {
         {
             key: 'categoriesRestore',
             label: 'Restaurar categorías oficiales',
-            desc: 'Restaura la configuración oficial de categorías del scraper. No debería tocar precios ni imágenes.',
+            desc: 'Restaura la configuración oficial de categorías. No modifica precios ni imágenes.',
             icon: <SyncOutlined />,
             danger: false,
             onClick: () => handleMaintenanceJob(
@@ -272,6 +272,7 @@ const TriggerModal = ({ open, onClose, onSuccess }) => {
             desc: 'Acción segura recomendada: analiza posibles cambios sin modificar productos.',
             icon: <BarChartOutlined />,
             danger: false,
+            devOnly: true,
             onClick: () => handleMaintenanceJob(
                 'categoriesReorganizeDryRun',
                 () => scraperAPI.reorganizeCategories({ dryRun: true }),
@@ -281,12 +282,14 @@ const TriggerModal = ({ open, onClose, onSuccess }) => {
         {
             key: 'categoriesReorganizeApply',
             label: 'Aplicar reorganización de categorías',
-            desc: 'Aplica cambios reales sobre category_id / category_name. No debería tocar precios ni imágenes.',
+            desc: 'Aplica cambios reales de categorías. No modifica precios ni imágenes.',
             icon: <WarningOutlined />,
             danger: true,
+            devOnly: true,
             onClick: handleApplyReorganization,
         },
     ];
+    const visibleActions = actions.filter((action) => devMode || !action.devOnly);
 
     return (
         <Modal
@@ -296,7 +299,7 @@ const TriggerModal = ({ open, onClose, onSuccess }) => {
             title={
                 <Space>
                     <WarningOutlined style={{ color: '#faad14' }} />
-                    <span>Ejecutar proceso técnico</span>
+                    <span>Iniciar proceso</span>
                 </Space>
             }
             width={460}
@@ -305,11 +308,11 @@ const TriggerModal = ({ open, onClose, onSuccess }) => {
                 type="warning"
                 showIcon
                 style={{ marginBottom: 16 }}
-                message="Acciones técnicas del servidor"
-                description="Estas acciones disparan procesos directamente en el servidor. Las sincronizaciones pueden tomar varios minutos y afectar el catálogo en tiempo real. Usá con precaución."
+                message="Antes de iniciar"
+                description="Estas acciones actualizan información del sistema y pueden tardar varios minutos. Podés seguir el avance desde Procesos pendientes."
             />
             <Space direction="vertical" style={{ width: '100%' }} size={10}>
-                {actions.map(a => (
+                {visibleActions.map(a => (
                     <Card
                         key={a.key}
                         size="small"
@@ -349,6 +352,7 @@ const TriggerModal = ({ open, onClose, onSuccess }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const JobDetailModal = ({ job, onClose }) => {
+    const { devMode } = useAdminDevMode();
     if (!job) return null;
     const result = job.result;
     const isPriceCheck = job.type === 'priceCheck';
@@ -358,11 +362,11 @@ const JobDetailModal = ({ job, onClose }) => {
         ['Páginas visitadas', result?.pagesVisited],
         ['Coincidencias', result?.matched],
         ['Modificados', result?.modified],
-        ['Dry run', result?.dryRun],
+        ['Simulación', result?.dryRun],
         ['Procesados', result?.processed],
         ['Total', result?.total],
         ['Errores', result?.errors],
-        ['Duración interna', result?.durationMs],
+        ['Duración', result?.durationMs],
     ];
 
     return (
@@ -373,8 +377,8 @@ const JobDetailModal = ({ job, onClose }) => {
             title={
                 <Space>
                     <RobotOutlined />
-                    <span>Detalle del Job</span>
-                    <Text type="secondary" style={{ fontSize: 12, fontWeight: 400 }}>{job.jobId}</Text>
+                    <span>Detalle del proceso</span>
+                    {devMode && <Text type="secondary" style={{ fontSize: 12, fontWeight: 400 }}>{job.jobId}</Text>}
                 </Space>
             }
             width={640}
@@ -384,12 +388,12 @@ const JobDetailModal = ({ job, onClose }) => {
                     <Tag color={JOB_TYPE_COLORS[job.type]}>{JOB_TYPE_LABELS[job.type] ?? job.type}</Tag>
                 </Descriptions.Item>
                 <Descriptions.Item label="Estado"><StatusTag status={job.status} /></Descriptions.Item>
-                <Descriptions.Item label="Encolado">{formatDate(job.enqueuedAt)}</Descriptions.Item>
+                <Descriptions.Item label="Agregado">{formatDate(job.enqueuedAt)}</Descriptions.Item>
                 <Descriptions.Item label="Iniciado">{formatDate(job.startedAt)}</Descriptions.Item>
                 <Descriptions.Item label="Finalizado">{formatDate(job.finishedAt)}</Descriptions.Item>
                 <Descriptions.Item label="Duración">{formatDuration(job.durationMs)}</Descriptions.Item>
-                <Descriptions.Item label="Espera en cola">{formatDuration(job.waitTimeMs)}</Descriptions.Item>
-                <Descriptions.Item label="Posición al encolar">{job.queuePosition ?? '—'}</Descriptions.Item>
+                <Descriptions.Item label="Espera">{formatDuration(job.waitTimeMs)}</Descriptions.Item>
+                <Descriptions.Item label="Posición inicial">{job.queuePosition ?? '—'}</Descriptions.Item>
                 {job.type === 'categoryScraper' && (
                     <Descriptions.Item label="Categorías" span={2}>
                         {(() => {
@@ -432,11 +436,11 @@ const JobDetailModal = ({ job, onClose }) => {
                                 .filter(([, value]) => value != null)
                                 .map(([label, value]) => (
                                     <Descriptions.Item key={label} label={label}>
-                                        {label === 'Dry run' ? (
+                                        {label === 'Simulación' ? (
                                             value ? <Tag color="green">Sí</Tag> : <Tag color="volcano">No</Tag>
                                         ) : label === 'Errores' ? (
                                             <Text type={value > 0 ? 'danger' : 'success'}>{value}</Text>
-                                        ) : label === 'Duración interna' ? (
+                                        ) : label === 'Duración' ? (
                                             formatDuration(value)
                                         ) : (
                                             value
@@ -453,9 +457,9 @@ const JobDetailModal = ({ job, onClose }) => {
                             </Descriptions.Item>
                             <Descriptions.Item label="Nuevos">{result.summary.new ?? '—'}</Descriptions.Item>
                             <Descriptions.Item label="Eliminados">{result.summary.removed ?? '—'}</Descriptions.Item>
-                            <Descriptions.Item label="Sin resp. Odoo">{result.summary.failed ?? '—'}</Descriptions.Item>
-                            <Descriptions.Item label="Total Odoo">{result.summary.total_odoo ?? '—'}</Descriptions.Item>
-                            <Descriptions.Item label="Total DB">{result.summary.total_db ?? '—'}</Descriptions.Item>
+                            <Descriptions.Item label="Sin respuesta">{result.summary.failed ?? '—'}</Descriptions.Item>
+                            <Descriptions.Item label="Total origen">{result.summary.total_odoo ?? '—'}</Descriptions.Item>
+                            {devMode && <Descriptions.Item label="Total interno">{result.summary.total_db ?? '—'}</Descriptions.Item>}
                         </Descriptions>
                     ) : (
                         <Descriptions bordered column={2} size="small">
@@ -464,19 +468,19 @@ const JobDetailModal = ({ job, onClose }) => {
                             <Descriptions.Item label="Errores">
                                 <Text type={result.errors > 0 ? 'danger' : 'success'}>{result.errors ?? '—'}</Text>
                             </Descriptions.Item>
-                            <Descriptions.Item label="Imágenes subidas">{result.uploaded ?? '—'}</Descriptions.Item>
-                            <Descriptions.Item label="Huérfanos eliminados">{result.orphansDeleted ?? '—'}</Descriptions.Item>
-                            <Descriptions.Item label="Duración interna">{formatDuration(result.durationMs)}</Descriptions.Item>
+                            {devMode && <Descriptions.Item label="Imágenes subidas">{result.uploaded ?? '—'}</Descriptions.Item>}
+                            {devMode && <Descriptions.Item label="Productos eliminados">{result.orphansDeleted ?? '—'}</Descriptions.Item>}
+                            <Descriptions.Item label="Duración">{formatDuration(result.durationMs)}</Descriptions.Item>
                         </Descriptions>
                     )}
                 </>
             )}
 
             {!result && ['enqueued', 'running'].includes(job.status) && (
-                <Alert type="info" message="El job aún no produjo resultados." showIcon />
+                <Alert type="info" message="El proceso todavía no produjo resultados." showIcon />
             )}
             {!result && job.status === 'canceled' && (
-                <Alert type="warning" message="El job fue cancelado antes de producir resultados." showIcon />
+                <Alert type="warning" message="El proceso fue cancelado antes de producir resultados." showIcon />
             )}
         </Modal>
     );
@@ -559,7 +563,7 @@ const PriceCheckDetailModal = ({ id, onClose }) => {
             open={!!id}
             onCancel={onClose}
             footer={<Button onClick={onClose}>Cerrar</Button>}
-            title={<Space><DollarOutlined /><span>Detalle de Price Check</span></Space>}
+            title={<Space><DollarOutlined /><span>Detalle de revisión de precios</span></Space>}
             width={820}
         >
             {loading ? (
@@ -569,7 +573,7 @@ const PriceCheckDetailModal = ({ id, onClose }) => {
                     <Descriptions bordered column={3} size="small" style={{ marginBottom: 16 }}>
                         <Descriptions.Item label="Ejecutado">{formatDate(data.checkedAt)}</Descriptions.Item>
                         <Descriptions.Item label="Duración">{formatDuration(data.durationMs)}</Descriptions.Item>
-                        <Descriptions.Item label="Total Odoo">{data.summary?.total_odoo ?? '—'}</Descriptions.Item>
+                        <Descriptions.Item label="Total origen">{data.summary?.total_odoo ?? '—'}</Descriptions.Item>
                         <Descriptions.Item label="Cambiados">
                             <Text type={data.summary?.changed > 0 ? 'warning' : 'success'}>
                                 {data.summary?.changed ?? 0}
@@ -599,12 +603,12 @@ const PriceCheckDetailModal = ({ id, onClose }) => {
 
                     {data.newIds?.length > 0 && (
                         <Alert type="info" style={{ marginTop: 12 }} showIcon
-                               message={`${data.newIds.length} producto${data.newIds.length !== 1 ? 's' : ''} nuevo${data.newIds.length !== 1 ? 's' : ''} detectado${data.newIds.length !== 1 ? 's' : ''} en Odoo`}
+                               message={`${data.newIds.length} producto${data.newIds.length !== 1 ? 's' : ''} nuevo${data.newIds.length !== 1 ? 's' : ''} detectado${data.newIds.length !== 1 ? 's' : ''} en el origen`}
                         />
                     )}
                     {data.removedIds?.length > 0 && (
                         <Alert type="warning" style={{ marginTop: 12 }} showIcon
-                               message={`${data.removedIds.length} producto${data.removedIds.length !== 1 ? 's' : ''} ausente${data.removedIds.length !== 1 ? 's' : ''} en Odoo pero presentes en DB`}
+                               message={`${data.removedIds.length} producto${data.removedIds.length !== 1 ? 's' : ''} ausente${data.removedIds.length !== 1 ? 's' : ''} en el origen`}
                         />
                     )}
                 </>
@@ -624,6 +628,7 @@ const QueueTab = ({
     onPurgeQueue,
     cancelingJobId,
     purgingQueue,
+    devMode,
 }) => {
     const [elapsed, setElapsed] = useState(statusData?.running?.elapsedMs ?? 0);
 
@@ -637,10 +642,61 @@ const QueueTab = ({
     const running = statusData?.running;
     const runningId = running?.id ?? running?.jobId;
     const pendingJobs = statusData?.pendingJobs ?? [];
+    const pendingColumns = [
+        {
+            title: '#',
+            key: 'pos',
+            width: 40,
+            render: (_, __, i) => <Text type="secondary">{i + 1}</Text>,
+        },
+        {
+            title: 'Tipo',
+            dataIndex: 'type',
+            key: 'type',
+            render: (t) => (
+                <Tag color={JOB_TYPE_COLORS[t]}>{JOB_TYPE_LABELS[t] ?? t}</Tag>
+            ),
+        },
+        ...(devMode ? [{
+            title: 'ID técnico',
+            dataIndex: 'id',
+            key: 'id',
+            render: (id) => <Text code style={{ fontSize: 11 }}>{id}</Text>,
+        }] : []),
+        {
+            title: 'Esperando',
+            dataIndex: 'waitingMs',
+            key: 'waitingMs',
+            render: formatDuration,
+        },
+        {
+            title: '',
+            key: 'action',
+            width: 48,
+            align: 'center',
+            render: (_, job) => {
+                const jobId = job.id ?? job.jobId;
+                return (
+                    <Tooltip title="Cancelar proceso pendiente">
+                        <Button
+                            danger
+                            type="text"
+                            size="small"
+                            icon={<CloseOutlined />}
+                            aria-label="Cancelar proceso pendiente"
+                            loading={cancelingJobId === jobId}
+                            disabled={!jobId || !!cancelingJobId || purgingQueue}
+                            onClick={() => onCancelJob(jobId, 'queued')}
+                        />
+                    </Tooltip>
+                );
+            },
+        },
+    ];
 
     return (
         <div>
-            {/* Job corriendo */}
+            {/* Proceso en curso */}
             <Card
                 title={
                     <Space>
@@ -661,7 +717,7 @@ const QueueTab = ({
                             disabled={!!cancelingJobId || purgingQueue}
                             onClick={() => onCancelJob(runningId, 'running')}
                         >
-                            Detener job actual
+                            Cancelar proceso
                         </Button>
                     ) : null
                 }
@@ -670,7 +726,7 @@ const QueueTab = ({
             >
                 {running ? (
                     <Descriptions column={2} size="small">
-                        <Descriptions.Item label="Job en ejecución">
+                        <Descriptions.Item label="Proceso en curso">
                             <Tag color={JOB_TYPE_COLORS[running.type]}>
                                 {JOB_TYPE_LABELS[running.type] ?? running.type}
                             </Tag>
@@ -680,24 +736,26 @@ const QueueTab = ({
                                 {formatDuration(elapsed)}
                             </Text>
                         </Descriptions.Item>
-                        <Descriptions.Item label="ID" span={2}>
-                            <Text code style={{ fontSize: 11 }}>{running.id}</Text>
-                        </Descriptions.Item>
+                        {devMode && (
+                            <Descriptions.Item label="ID técnico" span={2}>
+                                <Text code style={{ fontSize: 11 }}>{running.id}</Text>
+                            </Descriptions.Item>
+                        )}
                         <Descriptions.Item label="Iniciado">
                             {formatDate(running.startedAt)}
                         </Descriptions.Item>
                     </Descriptions>
                 ) : (
-                    <Text type="secondary">No hay ningún job en ejecución.</Text>
+                    <Text type="secondary">No hay procesos en ejecución.</Text>
                 )}
             </Card>
 
-            {/* Cola de espera */}
+            {/* Procesos pendientes */}
             <Card
                 title={
                     <Space>
                         <HourglassOutlined />
-                        <Text strong>Cola de espera</Text>
+                        <Text strong>Procesos pendientes</Text>
                         {statusData?.pending > 0 && (
                             <Badge count={statusData.pending} />
                         )}
@@ -713,7 +771,7 @@ const QueueTab = ({
                             disabled={!!cancelingJobId}
                             onClick={onPurgeQueue}
                         >
-                            Borrar cola
+                            Borrar pendientes
                         </Button>
                     ) : null
                 }
@@ -721,64 +779,14 @@ const QueueTab = ({
                 style={{ marginBottom: 16 }}
             >
                 {!statusData?.pending ? (
-                    <Empty description="Cola vacía" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                    <Empty description="No hay procesos pendientes" image={Empty.PRESENTED_IMAGE_SIMPLE} />
                 ) : (
                     <Table
                         dataSource={pendingJobs}
                         rowKey={(job) => job.id ?? job.jobId}
                         pagination={false}
                         size="small"
-                        columns={[
-                            {
-                                title: '#',
-                                key: 'pos',
-                                width: 40,
-                                render: (_, __, i) => <Text type="secondary">{i + 1}</Text>,
-                            },
-                            {
-                                title: 'Tipo',
-                                dataIndex: 'type',
-                                key: 'type',
-                                render: (t) => (
-                                    <Tag color={JOB_TYPE_COLORS[t]}>{JOB_TYPE_LABELS[t] ?? t}</Tag>
-                                ),
-                            },
-                            {
-                                title: 'Job ID',
-                                dataIndex: 'id',
-                                key: 'id',
-                                render: (id) => <Text code style={{ fontSize: 11 }}>{id}</Text>,
-                            },
-                            {
-                                title: 'Esperando',
-                                dataIndex: 'waitingMs',
-                                key: 'waitingMs',
-                                render: formatDuration,
-                            },
-                            {
-                                title: '',
-                                key: 'action',
-                                width: 48,
-                                align: 'center',
-                                render: (_, job) => {
-                                    const jobId = job.id ?? job.jobId;
-                                    return (
-                                        <Tooltip title="Cancelar job en cola">
-                                            <Button
-                                                danger
-                                                type="text"
-                                                size="small"
-                                                icon={<CloseOutlined />}
-                                                aria-label="Cancelar job en cola"
-                                                loading={cancelingJobId === jobId}
-                                                disabled={!jobId || !!cancelingJobId || purgingQueue}
-                                                onClick={() => onCancelJob(jobId, 'queued')}
-                                            />
-                                        </Tooltip>
-                                    );
-                                },
-                            },
-                        ]}
+                        columns={pendingColumns}
                     />
                 )}
             </Card>
@@ -787,7 +795,7 @@ const QueueTab = ({
             {stats && (
                 <Row gutter={[12, 12]}>
                     {[
-                        { label: 'Total jobs', value: stats.total, icon: <BarChartOutlined />, color: undefined },
+                        { label: 'Total procesos', value: stats.total, icon: <BarChartOutlined />, color: undefined },
                         { label: 'Completados', value: stats.completed, icon: <CheckCircleOutlined />, color: '#52c41a' },
                         { label: 'Fallidos', value: stats.failed, icon: <CloseCircleOutlined />, color: stats.failed > 0 ? '#ff4d4f' : undefined },
                         { label: 'Duración prom.', value: formatDuration(stats.avgDurationMs), icon: <ClockCircleOutlined />, color: undefined },
@@ -806,7 +814,7 @@ const QueueTab = ({
                     {stats.lastCompletedAt && (
                         <Col xs={24}>
                             <Text type="secondary" style={{ fontSize: 12 }}>
-                                Último job completado: {formatDate(stats.lastCompletedAt)}
+                                Último proceso completado: {formatDate(stats.lastCompletedAt)}
                             </Text>
                         </Col>
                     )}
@@ -817,10 +825,11 @@ const QueueTab = ({
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TAB: HISTORIAL SCRAPERS
+// TAB: HISTORIAL DE PROCESOS
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ProcesosHistoryTab = () => {
+    const { devMode } = useAdminDevMode();
     const [jobs, setJobs]           = useState([]);
     const [total, setTotal]         = useState(0);
     const [page, setPage]           = useState(1);
@@ -955,7 +964,7 @@ const ProcesosHistoryTab = () => {
                     value={statusFilter}
                     onChange={(v) => { setStatus(v); handleFilter(v, typeFilter); }}
                     options={[
-                        { value: 'enqueued',  label: 'En cola' },
+                        { value: 'enqueued',  label: 'En espera' },
                         { value: 'running',   label: 'Ejecutando' },
                         { value: 'completed', label: 'Completado' },
                         { value: 'failed',    label: 'Fallido' },
@@ -969,12 +978,12 @@ const ProcesosHistoryTab = () => {
                     value={typeFilter}
                     onChange={(v) => { setType(v); handleFilter(statusFilter, v); }}
                     options={[
-                        { value: 'sitemapScraper',  label: 'Sitemap Scraper' },
-                        { value: 'categoryScraper', label: 'Category Scraper' },
-                        { value: 'sitemapAnalysis', label: 'Análisis Sitemap' },
-                        { value: 'priceCheck',      label: 'Price Check' },
+                        ...(devMode ? [{ value: 'sitemapScraper',  label: 'Actualización por sitemap' }] : []),
+                        { value: 'categoryScraper', label: 'Actualizar catálogo' },
+                        ...(devMode ? [{ value: 'sitemapAnalysis', label: 'Análisis técnico' }] : []),
+                        { value: 'priceCheck',      label: 'Revisar precios' },
                         { value: 'categoriesRestore', label: 'Restaurar categorías' },
-                        { value: 'categoriesReorganize', label: 'Reorganizar categorías' },
+                        ...(devMode ? [{ value: 'categoriesReorganize', label: 'Reorganizar categorías' }] : []),
                     ]}
                 />
             </Space>
@@ -995,7 +1004,7 @@ const ProcesosHistoryTab = () => {
                         current={page}
                         total={total}
                         pageSize={PAGE_SIZE}
-                        showTotal={(t) => `${t} jobs`}
+                        showTotal={(t) => `${t} procesos`}
                         onChange={(p) => { setPage(p); fetch(p, statusFilter, typeFilter); }}
                         showSizeChanger={false}
                         size="small"
@@ -1028,7 +1037,7 @@ const PriceCheckTab = () => {
             setLatest(res.data);
         } catch (err) {
             if (err.response?.status !== 404) {
-                message.error(getApiErrorMessage(err, 'Error al cargar ultimo price check'));
+                message.error(getApiErrorMessage(err, 'Error al cargar la última revisión de precios'));
             }
         }
     }, []);
@@ -1055,11 +1064,11 @@ const PriceCheckTab = () => {
         setTriggering(true);
         try {
             await scraperAPI.triggerPriceCheck();
-            message.success('Verificación de precios iniciada');
+            message.success('Revisión de precios iniciada');
             // Refresh latest after a short delay
             setTimeout(fetchLatest, 2000);
         } catch (err) {
-            const errMsg = err.response?.data?.error || 'Error al iniciar price check';
+            const errMsg = err.response?.data?.error || 'Error al iniciar la revisión de precios';
             if (err.response?.status === 503) {
                 message.error(`Backend no configurado: ${errMsg}`);
             } else {
@@ -1100,7 +1109,7 @@ const PriceCheckTab = () => {
             render: (_, r) => r.summary?.removed ?? 0,
         },
         {
-            title: 'Total Odoo',
+            title: 'Total origen',
             key: 'total',
             align: 'center',
             render: (_, r) => r.summary?.total_odoo ?? '—',
@@ -1131,7 +1140,7 @@ const PriceCheckTab = () => {
                     loading={triggering}
                     onClick={handleTrigger}
                 >
-                    Ejecutar verificación
+                    Revisar precios
                 </Button>
             </div>
 
@@ -1143,7 +1152,7 @@ const PriceCheckTab = () => {
                     style={{ marginBottom: 16 }}
                     message={
                         <Space wrap>
-                            <Text strong>Último check:</Text>
+                            <Text strong>Última revisión:</Text>
                             <Text type="secondary">{formatDate(latest.checkedAt)}</Text>
                             <Tag color="orange">{latest.summary?.changed ?? 0} cambiados</Tag>
                             <Tag color="blue">{latest.summary?.new ?? 0} nuevos</Tag>
@@ -1196,6 +1205,7 @@ const PriceCheckTab = () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const JobsPage = () => {
+    const { devMode } = useAdminDevMode();
     const [statusData, setStatusData] = useState(null);
     const [stats, setStats]           = useState(null);
     const [loading, setLoading]       = useState(true);
@@ -1215,7 +1225,7 @@ const JobsPage = () => {
             setStatusData(statusRes.data);
             setStats(statsRes.data);
         } catch (error) {
-            message.error(getApiErrorMessage(error, 'Error al cargar estado de la cola'));
+            message.error(getApiErrorMessage(error, 'Error al cargar el estado de procesos'));
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -1236,10 +1246,10 @@ const JobsPage = () => {
         setCancelingJobId(jobId);
         try {
             await scraperAPI.cancelJob(jobId);
-            message.success('Job cancelado');
+            message.success('Proceso cancelado');
             fetchQueue(true);
         } catch (error) {
-            message.error(getApiErrorMessage(error, 'Error al cancelar el job'));
+            message.error(getApiErrorMessage(error, 'Error al cancelar el proceso'));
         } finally {
             setCancelingJobId(null);
         }
@@ -1247,11 +1257,11 @@ const JobsPage = () => {
 
     const handleCancelJob = (jobId, location) => {
         Modal.confirm({
-            title: location === 'running' ? 'Detener job actual' : 'Cancelar job en cola',
+            title: location === 'running' ? 'Cancelar proceso en curso' : 'Cancelar proceso pendiente',
             content: location === 'running'
-                ? 'El job en ejecución se marcará para cancelación.'
-                : 'El job pendiente se eliminará de la cola.',
-            okText: location === 'running' ? 'Detener' : 'Cancelar job',
+                ? 'El proceso en curso se marcará para cancelación. Puede tardar unos instantes en detenerse.'
+                : 'El proceso pendiente se eliminará de la lista de espera. No modifica productos ni precios.',
+            okText: location === 'running' ? 'Cancelar proceso' : 'Quitar pendiente',
             okButtonProps: { danger: true },
             cancelText: 'Volver',
             onOk: () => cancelJob(jobId),
@@ -1260,19 +1270,19 @@ const JobsPage = () => {
 
     const handlePurgeQueue = () => {
         Modal.confirm({
-            title: 'Borrar toda la cola',
-            content: 'Se eliminarán todos los jobs pendientes. El job en ejecución no se interrumpe.',
-            okText: 'Borrar cola',
+            title: 'Borrar procesos pendientes',
+            content: 'Se eliminarán todos los procesos pendientes. El proceso en curso no se interrumpe.',
+            okText: 'Borrar pendientes',
             okButtonProps: { danger: true },
             cancelText: 'Volver',
             onOk: async () => {
                 setPurgingQueue(true);
                 try {
                     await scraperAPI.purgeQueue();
-                    message.success('Cola borrada');
+                    message.success('Procesos pendientes borrados');
                     fetchQueue(true);
                 } catch (error) {
-                    message.error(getApiErrorMessage(error, 'Error al borrar la cola'));
+                    message.error(getApiErrorMessage(error, 'Error al borrar procesos pendientes'));
                 } finally {
                     setPurgingQueue(false);
                 }
@@ -1297,7 +1307,7 @@ const JobsPage = () => {
                         ? <SyncOutlined spin style={{ color: '#1677ff' }} />
                         : <HourglassOutlined />
                     }
-                    Cola
+                    Procesos pendientes
                     {statusData?.pending > 0 && (
                         <Badge count={statusData.pending} size="small" />
                     )}
@@ -1311,17 +1321,18 @@ const JobsPage = () => {
                     onPurgeQueue={handlePurgeQueue}
                     cancelingJobId={cancelingJobId}
                     purgingQueue={purgingQueue}
+                    devMode={devMode}
                 />
             ),
         },
         {
             key: 'history',
-            label: <Space><UnorderedListOutlined />Historial de Procesos</Space>,
+            label: <Space><UnorderedListOutlined />Historial</Space>,
             children: <ProcesosHistoryTab />,
         },
         {
             key: 'pricecheck',
-            label: <Space><DollarOutlined />Price Check</Space>,
+            label: <Space><DollarOutlined />Revisar precios</Space>,
             children: <PriceCheckTab />,
         },
     ];
@@ -1332,7 +1343,7 @@ const JobsPage = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
                 <Space>
                     <RobotOutlined style={{ fontSize: 22, color: '#1677ff' }} />
-                    <Title level={4} style={{ margin: 0 }}>Monitor de Procesos</Title>
+                    <Title level={4} style={{ margin: 0 }}>Procesos</Title>
                     {statusData?.isRunning && <Badge status="processing" text="En ejecución" />}
                 </Space>
                 <Space>
@@ -1348,7 +1359,7 @@ const JobsPage = () => {
                         icon={<ThunderboltOutlined />}
                         onClick={() => setTriggerOpen(true)}
                     >
-                        Ejecutar
+                        Iniciar proceso
                     </Button>
                 </Space>
             </div>
@@ -1359,6 +1370,7 @@ const JobsPage = () => {
                 open={triggerOpen}
                 onClose={() => setTriggerOpen(false)}
                 onSuccess={() => fetchQueue(true)}
+                devMode={devMode}
             />
         </div>
     );

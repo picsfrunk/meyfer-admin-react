@@ -33,6 +33,7 @@ import { productsAPI, configAPI } from '../services/api';
 import { scraperAPI } from '../services/scraperAPI';
 import { getApiErrorMessage } from '../utils/apiError';
 import HelpPanel from '../components/common/HelpPanel';
+import useAdminDevMode from '../hooks/useAdminDevMode';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -49,6 +50,7 @@ const Catalog = () => {
     const [selectedCategories, setSelectedCategories] = useState([]);
     const [selectAll, setSelectAll] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
+    const { devMode } = useAdminDevMode();
 
     useEffect(() => {
         const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -126,7 +128,7 @@ const Catalog = () => {
                     const queued = response.data.status === 'queued';
                     message.success(
                         queued
-                            ? `Sincronización completa encolada — Posición: ${response.data.position}`
+                            ? `Actualización completa agregada a pendientes. Posición ${response.data.position}`
                             : 'Sincronización completa iniciada'
                     );
                 } catch (error) {
@@ -199,10 +201,10 @@ const Catalog = () => {
                     message.success(
                         isAll
                             ? (queued
-                                ? `Sincronización completa encolada — Posición: ${response.data.position}`
+                                ? `Actualización completa agregada a pendientes. Posición ${response.data.position}`
                                 : 'Sincronización completa iniciada')
                             : (queued
-                                ? `${selectedCategories.length} categorías encoladas — Posición: ${response.data.position}`
+                                ? `${selectedCategories.length} categorías agregadas a pendientes. Posición ${response.data.position}`
                                 : `Sincronización iniciada para ${selectedCategories.length} categorías`)
                     );
 
@@ -239,7 +241,7 @@ const Catalog = () => {
                     const queued = response.data.status === 'queued';
                     message.success(
                         queued
-                            ? `Sincronización encolada — Posición: ${response.data.position}`
+                            ? `Actualización agregada a pendientes. Posición ${response.data.position}`
                             : 'Sincronización iniciada'
                     );
                     form.resetFields();
@@ -282,7 +284,6 @@ const Catalog = () => {
                     <li><Text strong>Sincronización por categorías</Text> permite procesar solo algunos rubros.</li>
                     <li><Text strong>Actualización desde Excel</Text> procesa el archivo remoto para actualizar datos de catálogo.</li>
                     <li>Después de iniciar una sincronización, revisá el avance en la sección <Text strong>Procesos</Text>.</li>
-                    <li>Por ahora no se detallan variantes internas de scraper/actualizador porque ese flujo será simplificado más adelante.</li>
                 </ul>
             </HelpPanel>
 
@@ -442,46 +443,50 @@ const Catalog = () => {
                 </Card>
             )}
 
-            <Divider orientation="left">
-                <Text strong style={{ fontSize: isMobile ? '13px' : '15px' }}>Sincronización Manual</Text>
-            </Divider>
+            {devMode && (
+                <>
+                    <Divider orientation="left">
+                        <Text strong style={{ fontSize: isMobile ? '13px' : '15px' }}>Sincronización manual</Text>
+                    </Divider>
 
-            {isMobile ? (
-                <Collapse defaultActiveKey={[]}>
-                    <Panel header={<Space><PlayCircleOutlined /><Text strong>Sincronización Manual</Text></Space>} key="manual">
-                        <Space direction="vertical" style={{ width: '100%' }} size={12}>
-                            <Alert message="Ejecuta sincronización para una categoría específica." type="warning" showIcon icon={<WarningOutlined />} style={{ fontSize: '12px' }} />
-                            <Form form={form} layout="vertical" onFinish={handleScrape} initialValues={{ scraperType: 'categoryScraper', categoryIds: 8 }}>
-                                <Form.Item label={<Text style={{ fontSize: '12px' }}>Tipo de Sincronización</Text>} name="scraperType" rules={[{ required: true }]} style={{ marginBottom: 12 }}>
-                                    <Select size="middle" disabled><Option value="categoryScraper">Sincronización de Categorías</Option></Select>
-                                </Form.Item>
-                                <Form.Item label={<Text style={{ fontSize: '12px' }}>ID de Categoría</Text>} name="categoryIds" rules={[{ required: true, message: 'Ingrese el ID de la categoría' }]} style={{ marginBottom: 12 }}>
-                                    <InputNumber style={{ width: '100%' }} min={1} placeholder="Ej: 8" />
-                                </Form.Item>
-                                <Form.Item style={{ marginBottom: 0 }}>
-                                    <Button type="primary" htmlType="submit" loading={loading} icon={<PlayCircleOutlined />} block>Ejecutar</Button>
-                                </Form.Item>
-                            </Form>
-                        </Space>
-                    </Panel>
-                </Collapse>
-            ) : (
-                <Card title={<Space><PlayCircleOutlined />Sincronización Manual</Space>}>
-                    <Space direction="vertical" style={{ width: '100%' }}>
-                        <Alert message="Sincronización Individual" description="Ejecuta una sincronización para una categoría específica." type="warning" showIcon icon={<WarningOutlined />} size="small" />
-                        <Form form={form} layout="vertical" onFinish={handleScrape} initialValues={{ scraperType: 'categoryScraper', categoryIds: 8 }}>
-                            <Form.Item label="Tipo de Sincronización" name="scraperType" rules={[{ required: true, message: 'Seleccione el tipo de sincronización' }]}>
-                                <Select placeholder="Seleccione el tipo de sincronización" disabled><Option value="categoryScraper">Sincronización de Categorías</Option></Select>
-                            </Form.Item>
-                            <Form.Item label="ID de Categoría" name="categoryIds" rules={[{ required: true, message: 'Ingrese el ID de la categoría' }]} help="ID numérico de la categoría a procesar">
-                                <InputNumber style={{ width: '100%' }} min={1} placeholder="Ej: 8" />
-                            </Form.Item>
-                            <Form.Item>
-                                <Button type="primary" htmlType="submit" loading={loading} icon={<PlayCircleOutlined />} block>Ejecutar</Button>
-                            </Form.Item>
-                        </Form>
-                    </Space>
-                </Card>
+                    {isMobile ? (
+                        <Collapse defaultActiveKey={[]}>
+                            <Panel header={<Space><PlayCircleOutlined /><Text strong>Sincronización manual</Text></Space>} key="manual">
+                                <Space direction="vertical" style={{ width: '100%' }} size={12}>
+                                    <Alert message="Herramienta técnica para actualizar una categoría por ID." type="warning" showIcon icon={<WarningOutlined />} style={{ fontSize: '12px' }} />
+                                    <Form form={form} layout="vertical" onFinish={handleScrape} initialValues={{ scraperType: 'categoryScraper', categoryIds: 8 }}>
+                                        <Form.Item label={<Text style={{ fontSize: '12px' }}>Tipo de actualización</Text>} name="scraperType" rules={[{ required: true }]} style={{ marginBottom: 12 }}>
+                                            <Select size="middle" disabled><Option value="categoryScraper">Actualización por categorías</Option></Select>
+                                        </Form.Item>
+                                        <Form.Item label={<Text style={{ fontSize: '12px' }}>ID de categoría</Text>} name="categoryIds" rules={[{ required: true, message: 'Ingrese el ID de la categoría' }]} style={{ marginBottom: 12 }}>
+                                            <InputNumber style={{ width: '100%' }} min={1} placeholder="Ej: 8" />
+                                        </Form.Item>
+                                        <Form.Item style={{ marginBottom: 0 }}>
+                                            <Button type="primary" htmlType="submit" loading={loading} icon={<PlayCircleOutlined />} block>Ejecutar</Button>
+                                        </Form.Item>
+                                    </Form>
+                                </Space>
+                            </Panel>
+                        </Collapse>
+                    ) : (
+                        <Card title={<Space><PlayCircleOutlined />Sincronización manual</Space>}>
+                            <Space direction="vertical" style={{ width: '100%' }}>
+                                <Alert message="Herramienta técnica" description="Actualiza una categoría específica por ID." type="warning" showIcon icon={<WarningOutlined />} size="small" />
+                                <Form form={form} layout="vertical" onFinish={handleScrape} initialValues={{ scraperType: 'categoryScraper', categoryIds: 8 }}>
+                                    <Form.Item label="Tipo de actualización" name="scraperType" rules={[{ required: true, message: 'Seleccione el tipo de actualización' }]}>
+                                        <Select placeholder="Seleccione el tipo de actualización" disabled><Option value="categoryScraper">Actualización por categorías</Option></Select>
+                                    </Form.Item>
+                                    <Form.Item label="ID de categoría" name="categoryIds" rules={[{ required: true, message: 'Ingrese el ID de la categoría' }]} help="ID numérico de la categoría a procesar">
+                                        <InputNumber style={{ width: '100%' }} min={1} placeholder="Ej: 8" />
+                                    </Form.Item>
+                                    <Form.Item>
+                                        <Button type="primary" htmlType="submit" loading={loading} icon={<PlayCircleOutlined />} block>Ejecutar</Button>
+                                    </Form.Item>
+                                </Form>
+                            </Space>
+                        </Card>
+                    )}
+                </>
             )}
         </div>
     );
