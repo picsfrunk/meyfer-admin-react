@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Button, Avatar, Dropdown, Typography, Drawer } from 'antd';
+import { Layout, Menu, Button, Avatar, Dropdown, Typography, Drawer, Tag } from 'antd';
 import {
     MenuOutlined,
     SettingOutlined,
@@ -14,6 +14,7 @@ import {
 } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
+import useAdminDevMode from '../hooks/useAdminDevMode';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -22,7 +23,9 @@ const DashboardLayout = ({ children }) => {
     const [collapsed, setCollapsed] = useState(false);
     const [drawerVisible, setDrawerVisible] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
+    const [logoClicks, setLogoClicks] = useState(0);
     const { user, logout } = useAuth();
+    const { devMode, toggleDevMode } = useAdminDevMode({ listenShortcuts: true });
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -37,6 +40,22 @@ const DashboardLayout = ({ children }) => {
 
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
+
+    useEffect(() => {
+        if (!logoClicks) return undefined;
+        const timeout = setTimeout(() => setLogoClicks(0), 1200);
+        return () => clearTimeout(timeout);
+    }, [logoClicks]);
+
+    const handleLogoClick = () => {
+        const nextClicks = logoClicks + 1;
+        if (nextClicks >= 5) {
+            setLogoClicks(0);
+            toggleDevMode();
+            return;
+        }
+        setLogoClicks(nextClicks);
+    };
 
     const menuItems = [
         {
@@ -126,7 +145,9 @@ const DashboardLayout = ({ children }) => {
                 fontWeight: 'bold',
                 fontSize: '18px',
                 textAlign: 'center'
-            }}>
+            }}
+                 onClick={handleLogoClick}
+            >
                 MeyFer Panel
             </div>
             <Menu
@@ -159,8 +180,12 @@ const DashboardLayout = ({ children }) => {
                         alignItems: 'center',
                         justifyContent: 'center',
                         color: 'white',
-                        fontWeight: 'bold'
-                    }}>
+                        fontWeight: 'bold',
+                        cursor: 'default',
+                        userSelect: 'none',
+                    }}
+                         onClick={handleLogoClick}
+                    >
                         {!collapsed ? 'MeyFer Panel' : 'MF'}
                     </div>
                     <Menu
@@ -208,6 +233,7 @@ const DashboardLayout = ({ children }) => {
                     />
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        {devMode && !isMobile && <Tag color="gold">Modo técnico</Tag>}
                         <Text style={{ display: isMobile ? 'none' : 'block' }}>
                             Bienvenido, {user?.username}
                         </Text>
