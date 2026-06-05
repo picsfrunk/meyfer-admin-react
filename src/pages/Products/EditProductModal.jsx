@@ -1,13 +1,27 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Form, Input, InputNumber, Select, Button, Space, Switch, Upload, message } from 'antd';
+import { Modal, Form, Input, InputNumber, Select, Button, Space, Upload, message, Image, Empty, Typography } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import { productsAPI } from '../../services/api';
 import { getApiErrorMessage } from '../../utils/apiError';
+
+const { Text } = Typography;
+
+const getProductImageUrl = (product) => (
+    product?.image_url
+    || product?.imageUrl
+    || product?.original_image_url
+    || product?.thumbnail_url
+    || product?.image
+    || ''
+);
 
 const EditProductModal = ({ visible, product, onSave, onCancel }) => {
     const [form] = Form.useForm();
     const [categories, setCategories] = useState([]);
     const [fileList, setFileList] = useState([]);
+    const [imageLoadError, setImageLoadError] = useState(false);
+    const watchedImageUrl = Form.useWatch('image_url', form);
+    const currentImageUrl = watchedImageUrl !== undefined ? watchedImageUrl : getProductImageUrl(product);
 
     useEffect(() => {
         if (visible) {
@@ -28,11 +42,17 @@ const EditProductModal = ({ visible, product, onSave, onCancel }) => {
                 image_url: product.image_url,
             });
             setFileList([]); // Reset file list when opening modal
+            setImageLoadError(false);
         } else if (!visible) {
             form.resetFields();
             setFileList([]);
+            setImageLoadError(false);
         }
     }, [visible, product, form]);
+
+    useEffect(() => {
+        setImageLoadError(false);
+    }, [currentImageUrl]);
 
     const loadCategories = async () => {
         try {
@@ -126,6 +146,44 @@ const EditProductModal = ({ visible, product, onSave, onCancel }) => {
                 onFinish={handleSubmit}
                 autoComplete="off"
             >
+                <div style={{
+                    marginBottom: 20,
+                    padding: 12,
+                    border: '1px solid #f0f0f0',
+                    borderRadius: 6,
+                    background: '#fafafa',
+                }}>
+                    <Text strong>Imagen actual del producto</Text>
+                    <div style={{
+                        marginTop: 10,
+                        minHeight: 180,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: 6,
+                        background: '#fff',
+                        overflow: 'hidden',
+                    }}>
+                        {currentImageUrl && !imageLoadError ? (
+                            <Image
+                                src={currentImageUrl}
+                                alt={product?.display_name || 'Imagen del producto'}
+                                style={{
+                                    width: '100%',
+                                    maxHeight: 220,
+                                    objectFit: 'contain',
+                                }}
+                                onError={() => setImageLoadError(true)}
+                            />
+                        ) : (
+                            <Empty
+                                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                                description="Sin imagen disponible"
+                            />
+                        )}
+                    </div>
+                </div>
+
                 <Form.Item
                     label="ID Producto"
                     name="product_id"
