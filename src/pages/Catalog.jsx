@@ -282,7 +282,6 @@ const Catalog = () => {
                 <ul style={{ marginBottom: 0, paddingLeft: 20 }}>
                     <li><Text strong>Sincronización completa</Text> actualiza todo el catálogo y puede demorar varios minutos.</li>
                     <li><Text strong>Sincronización por categorías</Text> permite procesar solo algunos rubros.</li>
-                    <li><Text strong>Actualización desde Excel</Text> procesa el archivo remoto para actualizar datos de catálogo.</li>
                     <li>Después de iniciar una sincronización, revisá el avance en la sección <Text strong>Procesos</Text>.</li>
                 </ul>
             </HelpPanel>
