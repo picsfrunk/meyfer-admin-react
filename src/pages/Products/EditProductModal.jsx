@@ -1,10 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Form, Input, InputNumber, Select, Button, Space, Upload, message, Image, Empty, Typography } from 'antd';
+import { Modal, Form, Input, InputNumber, Select, Button, Space, Upload, message, Image, Empty, Typography, Alert } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import { productsAPI } from '../../services/api';
 import { getApiErrorMessage } from '../../utils/apiError';
 
 const { Text } = Typography;
+const NO_CATEGORIES_MESSAGE = 'No hay categorías disponibles. Actualizá el catálogo antes de crear productos manuales.';
+
+const normalizeCategoryId = (categoryId) => (
+    categoryId === undefined || categoryId === null ? undefined : String(categoryId)
+);
 
 const getProductImageUrl = (product) => (
     product?.image_url
@@ -18,6 +23,7 @@ const getProductImageUrl = (product) => (
 const EditProductModal = ({ visible, product, onSave, onCancel }) => {
     const [form] = Form.useForm();
     const [categories, setCategories] = useState([]);
+    const [categoriesLoading, setCategoriesLoading] = useState(false);
     const [fileList, setFileList] = useState([]);
     const [imageLoadError, setImageLoadError] = useState(false);
     const watchedImageUrl = Form.useWatch('image_url', form);
@@ -35,7 +41,7 @@ const EditProductModal = ({ visible, product, onSave, onCancel }) => {
                 product_id: product.product_id,
                 display_name: product.display_name,
                 base_unit_name: product.base_unit_name,
-                category_id: product.category_id,
+                category_id: normalizeCategoryId(product.category_id),
                 category_name: product.category_name,
                 brand: product.brand,
                 list_price: product.list_price,
@@ -55,6 +61,7 @@ const EditProductModal = ({ visible, product, onSave, onCancel }) => {
     }, [currentImageUrl]);
 
     const loadCategories = async () => {
+        setCategoriesLoading(true);
         try {
             const response = await productsAPI.getCategories();
             const categoriesData = response?.data?.categories;
@@ -65,21 +72,42 @@ const EditProductModal = ({ visible, product, onSave, onCancel }) => {
             }
 
             setCategories(
-                categoriesData.map((category) => ({
-                    label: category.category_name,
-                    value: category.category_name,
-                }))
+                categoriesData
+                    .filter((category) => normalizeCategoryId(category.category_id))
+                    .map((category) => ({
+                        label: category.category_name,
+                        value: normalizeCategoryId(category.category_id),
+                        category_name: category.category_name,
+                    }))
             );
         } catch (error) {
             console.error('Error loading categories:', error);
             setCategories([]);
             message.error(getApiErrorMessage(error, 'Error al cargar categorías'));
+        } finally {
+            setCategoriesLoading(false);
         }
     };
 
     const handleSubmit = async () => {
         try {
+            if (categories.length === 0) {
+                message.error(NO_CATEGORIES_MESSAGE);
+                return;
+            }
+
             const values = await form.validateFields();
+            const selectedCategory = categories.find((category) => category.value === values.category_id);
+
+            if (!selectedCategory) {
+                form.setFields([
+                    {
+                        name: 'category_id',
+                        errors: ['Seleccioná una categoría existente'],
+                    },
+                ]);
+                return;
+            }
 
             // Crear FormData para enviar con multipart/form-data
             const formData = new FormData();
@@ -87,8 +115,8 @@ const EditProductModal = ({ visible, product, onSave, onCancel }) => {
             // Agregar campos editables
             if (values.display_name !== undefined) formData.append('display_name', values.display_name);
             if (values.base_unit_name !== undefined) formData.append('base_unit_name', values.base_unit_name);
-            if (values.category_id !== undefined) formData.append('category_id', values.category_id.toString());
-            if (values.category_name !== undefined) formData.append('category_name', values.category_name);
+            formData.append('category_id', selectedCategory.value);
+            formData.append('category_name', selectedCategory.category_name);
             if (values.brand !== undefined) formData.append('brand', values.brand);
             if (values.list_price !== undefined) formData.append('list_price', values.list_price.toString());
             if (values.image_url !== undefined) formData.append('image_url', values.image_url);
@@ -218,25 +246,37 @@ const EditProductModal = ({ visible, product, onSave, onCancel }) => {
                 </Form.Item>
 
                 <Form.Item
-                    label="ID Categoría"
+                    label="Categoría"
                     name="category_id"
                     rules={[
-                        { required: true, message: 'El ID de categoría es obligatorio' },
+                        { required: true, message: 'La categoría es obligatoria' },
                     ]}
                 >
-                    <InputNumber
-                        min={1}
-                        placeholder="Ej: 5"
-                        style={{ width: '100%' }}
+                    <Select
+                        options={categories}
+                        placeholder="Selecciona una categoría"
+                        disabled={categoriesLoading || categories.length === 0}
+                        loading={categoriesLoading}
+                        showSearch
+                        optionFilterProp="label"
+                        onChange={(value, option) => {
+                            form.setFieldValue('category_name', option?.category_name || '');
+                        }}
                     />
                 </Form.Item>
 
-                <Form.Item
-                    label="Categoría"
-                    name="category_name"
-                >
-                    <Select options={categories} placeholder="Selecciona una categoría" />
+                <Form.Item name="category_name" hidden>
+                    <Input />
                 </Form.Item>
+
+                {!categoriesLoading && categories.length === 0 && (
+                    <Alert
+                        type="warning"
+                        message={NO_CATEGORIES_MESSAGE}
+                        showIcon
+                        style={{ marginBottom: 24 }}
+                    />
+                )}
 
                 <Form.Item
                     label="Marca"
@@ -282,7 +322,7 @@ const EditProductModal = ({ visible, product, onSave, onCancel }) => {
                 <Form.Item>
                     <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
                         <Button onClick={onCancel}>Cancelar</Button>
-                        <Button type="primary" htmlType="submit">
+                        <Button type="primary" htmlType="submit" disabled={categoriesLoading || categories.length === 0}>
                             Guardar cambios
                         </Button>
                     </Space>

@@ -1,12 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Form, Input, InputNumber, Select, Button, Space, Switch, Upload, message } from 'antd';
+import { Modal, Form, Input, InputNumber, Select, Button, Space, Upload, message, Alert } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import { productsAPI } from '../../services/api';
 import { getApiErrorMessage } from '../../utils/apiError';
 
+const NO_CATEGORIES_MESSAGE = 'No hay categorías disponibles. Actualizá el catálogo antes de crear productos manuales.';
+
+const normalizeCategoryId = (categoryId) => (
+    categoryId === undefined || categoryId === null ? undefined : String(categoryId)
+);
+
 const CreateProductModal = ({ visible, onSave, onCancel }) => {
     const [form] = Form.useForm();
     const [categories, setCategories] = useState([]);
+    const [categoriesLoading, setCategoriesLoading] = useState(false);
     const [fileList, setFileList] = useState([]);
 
     useEffect(() => {
@@ -23,6 +30,7 @@ const CreateProductModal = ({ visible, onSave, onCancel }) => {
     }, [visible, form]);
 
     const loadCategories = async () => {
+        setCategoriesLoading(true);
         try {
             const response = await productsAPI.getCategories();
             const categoriesData = response?.data?.categories;
@@ -33,21 +41,42 @@ const CreateProductModal = ({ visible, onSave, onCancel }) => {
             }
 
             setCategories(
-                categoriesData.map((category) => ({
-                    label: category.category_name,
-                    value: category.category_name,
-                }))
+                categoriesData
+                    .filter((category) => normalizeCategoryId(category.category_id))
+                    .map((category) => ({
+                        label: category.category_name,
+                        value: normalizeCategoryId(category.category_id),
+                        category_name: category.category_name,
+                    }))
             );
         } catch (error) {
             console.error('Error loading categories:', error);
             setCategories([]);
             message.error(getApiErrorMessage(error, 'Error al cargar categorías'));
+        } finally {
+            setCategoriesLoading(false);
         }
     };
 
     const handleSubmit = async () => {
         try {
+            if (categories.length === 0) {
+                message.error(NO_CATEGORIES_MESSAGE);
+                return;
+            }
+
             const values = await form.validateFields();
+            const selectedCategory = categories.find((category) => category.value === values.category_id);
+
+            if (!selectedCategory) {
+                form.setFields([
+                    {
+                        name: 'category_id',
+                        errors: ['Seleccioná una categoría existente'],
+                    },
+                ]);
+                return;
+            }
 
             // Crear FormData para enviar con multipart/form-data
             const formData = new FormData();
@@ -56,11 +85,11 @@ const CreateProductModal = ({ visible, onSave, onCancel }) => {
             formData.append('product_id', values.product_id);
             formData.append('display_name', values.display_name);
             formData.append('base_unit_name', values.base_unit_name);
-            formData.append('category_id', values.category_id || 1); // Default category_id if not provided
+            formData.append('category_id', selectedCategory.value);
+            formData.append('category_name', selectedCategory.category_name);
             formData.append('list_price', values.list_price.toString());
 
             // Agregar campos opcionales si existen
-            if (values.category_name) formData.append('category_name', values.category_name);
             if (values.brand) formData.append('brand', values.brand);
             if (values.image_url) formData.append('image_url', values.image_url);
 
@@ -152,25 +181,37 @@ const CreateProductModal = ({ visible, onSave, onCancel }) => {
                 </Form.Item>
 
                 <Form.Item
-                    label="ID Categoría"
+                    label="Categoría"
                     name="category_id"
                     rules={[
-                        { required: true, message: 'El ID de categoría es obligatorio' },
+                        { required: true, message: 'La categoría es obligatoria' },
                     ]}
                 >
-                    <InputNumber
-                        min={1}
-                        placeholder="Ej: 5"
-                        style={{ width: '100%' }}
+                    <Select
+                        options={categories}
+                        placeholder="Selecciona una categoría"
+                        disabled={categoriesLoading || categories.length === 0}
+                        loading={categoriesLoading}
+                        showSearch
+                        optionFilterProp="label"
+                        onChange={(value, option) => {
+                            form.setFieldValue('category_name', option?.category_name || '');
+                        }}
                     />
                 </Form.Item>
 
-                <Form.Item
-                    label="Categoría"
-                    name="category_name"
-                >
-                    <Select options={categories} placeholder="Selecciona una categoría" />
+                <Form.Item name="category_name" hidden>
+                    <Input />
                 </Form.Item>
+
+                {!categoriesLoading && categories.length === 0 && (
+                    <Alert
+                        type="warning"
+                        message={NO_CATEGORIES_MESSAGE}
+                        showIcon
+                        style={{ marginBottom: 24 }}
+                    />
+                )}
 
                 <Form.Item
                     label="Marca"
@@ -216,7 +257,7 @@ const CreateProductModal = ({ visible, onSave, onCancel }) => {
                 <Form.Item>
                     <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
                         <Button onClick={onCancel}>Cancelar</Button>
-                        <Button type="primary" htmlType="submit">
+                        <Button type="primary" htmlType="submit" disabled={categoriesLoading || categories.length === 0}>
                             Crear Producto
                         </Button>
                     </Space>
