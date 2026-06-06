@@ -412,36 +412,50 @@ const Catalog = () => {
                 </Space>
             </Card>
 
-            {isMobile ? (
+            {devMode && (isMobile ? (
                 <Collapse defaultActiveKey={[]} style={{ marginBottom: 16 }}>
-                    <Panel header={<Space><FileExcelOutlined /><Text strong>Actualización desde Excel</Text></Space>} key="excel">
+                    <Panel header={<Space><FileExcelOutlined /><Text strong>Herramienta interna: actualización desde Excel</Text></Space>} key="excel">
                         <Space direction="vertical" style={{ width: '100%' }} size={12}>
-                            <Alert message="Actualiza precios y disponibilidad desde archivo XLS remoto." type="success" showIcon style={{ fontSize: '12px' }} />
+                            <Alert
+                                message="Herramienta interna"
+                                description="Procesa el archivo XLS remoto. No es un flujo operativo para cliente."
+                                type="warning"
+                                showIcon
+                                icon={<WarningOutlined />}
+                                style={{ fontSize: '12px' }}
+                            />
                             <div style={{ textAlign: 'center' }}>
                                 <Text type="secondary" style={{ fontSize: '11px', display: 'block' }}><CalendarOutlined /> Última actualización:</Text>
                                 <Text style={{ fontSize: '11px' }}>{formatDate(lastUpdate)}</Text>
                             </div>
                             <Button type="primary" icon={<ReloadOutlined />} loading={updateLoading} onClick={handleUpdateCatalog} block>
-                                Actualizar desde Excel
+                                Ejecutar actualización interna desde Excel
                             </Button>
                         </Space>
                     </Panel>
                 </Collapse>
             ) : (
-                <Card title={<Space><FileExcelOutlined />Actualización desde Excel</Space>} style={{ marginBottom: 24 }}>
+                <Card title={<Space><FileExcelOutlined />Herramienta interna: actualización desde Excel</Space>} style={{ marginBottom: 24 }}>
                     <Space direction="vertical" style={{ width: '100%' }}>
-                        <Alert message="Actualización de Catálogo" description="Descarga y procesa el archivo XLS remoto para actualizar precios y disponibilidad de productos." type="success" showIcon size="small" />
+                        <Alert
+                            message="Herramienta interna"
+                            description="Descarga y procesa el archivo XLS remoto para actualizar precios y disponibilidad. No presentarla como flujo operativo para cliente."
+                            type="warning"
+                            showIcon
+                            icon={<WarningOutlined />}
+                            size="small"
+                        />
                         <div style={{ textAlign: 'center' }}>
                             <div style={{ marginBottom: 8 }}><CalendarOutlined style={{ marginRight: 8 }} /><Text strong>Última actualización:</Text></div>
                             <Text type="secondary">{formatDate(lastUpdate)}</Text>
                         </div>
                         <Divider style={{ margin: '16px 0' }} />
                         <Button type="primary" icon={<ReloadOutlined />} loading={updateLoading} onClick={handleUpdateCatalog} size="large" block>
-                            Actualizar Catálogo desde Excel
+                            Ejecutar actualización interna desde Excel
                         </Button>
                     </Space>
                 </Card>
-            )}
+            ))}
 
             {devMode && (
                 <>
