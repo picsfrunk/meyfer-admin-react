@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Form, Input, InputNumber, Select, Button, Space, Upload, message, Alert } from 'antd';
+import { Modal, Form, Input, InputNumber, Select, Button, Space, Upload, message, Alert, Image } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import { productsAPI } from '../../services/api';
 import { getApiErrorMessage } from '../../utils/apiError';
@@ -15,6 +15,8 @@ const CreateProductModal = ({ visible, onSave, onCancel }) => {
     const [categories, setCategories] = useState([]);
     const [categoriesLoading, setCategoriesLoading] = useState(false);
     const [fileList, setFileList] = useState([]);
+    const [selectedImageFile, setSelectedImageFile] = useState(null);
+    const [imagePreviewUrl, setImagePreviewUrl] = useState('');
 
     useEffect(() => {
         if (visible) {
@@ -26,8 +28,18 @@ const CreateProductModal = ({ visible, onSave, onCancel }) => {
         if (!visible) {
             form.resetFields();
             setFileList([]);
+            setSelectedImageFile(null);
+            setImagePreviewUrl('');
         }
     }, [visible, form]);
+
+    useEffect(() => {
+        return () => {
+            if (imagePreviewUrl) {
+                URL.revokeObjectURL(imagePreviewUrl);
+            }
+        };
+    }, [imagePreviewUrl]);
 
     const loadCategories = async () => {
         setCategoriesLoading(true);
@@ -94,8 +106,8 @@ const CreateProductModal = ({ visible, onSave, onCancel }) => {
             if (values.image_url) formData.append('image_url', values.image_url);
 
             // Agregar imagen si existe
-            if (fileList.length > 0) {
-                formData.append('image', fileList[0].originFileObj);
+            if (selectedImageFile) {
+                formData.append('image', selectedImageFile);
             }
 
             await productsAPI.create(formData);
@@ -108,8 +120,10 @@ const CreateProductModal = ({ visible, onSave, onCancel }) => {
     };
 
     const uploadProps = {
-        onRemove: (file) => {
+        onRemove: () => {
             setFileList([]);
+            setSelectedImageFile(null);
+            setImagePreviewUrl('');
         },
         beforeUpload: (file) => {
             const isValidType = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
@@ -125,6 +139,8 @@ const CreateProductModal = ({ visible, onSave, onCancel }) => {
             }
 
             setFileList([file]);
+            setSelectedImageFile(file);
+            setImagePreviewUrl(URL.createObjectURL(file));
             return false; // Prevent auto upload
         },
         fileList,
@@ -249,6 +265,19 @@ const CreateProductModal = ({ visible, onSave, onCancel }) => {
                     <Upload {...uploadProps} maxCount={1}>
                         <Button icon={<UploadOutlined />}>Seleccionar Imagen</Button>
                     </Upload>
+                    {imagePreviewUrl && (
+                        <div style={{ marginTop: 12 }}>
+                            <Image
+                                src={imagePreviewUrl}
+                                alt="Vista previa de la imagen seleccionada"
+                                style={{
+                                    width: '100%',
+                                    maxHeight: 180,
+                                    objectFit: 'contain',
+                                }}
+                            />
+                        </div>
+                    )}
                     <div style={{ marginTop: 8, fontSize: '12px', color: '#666' }}>
                         Formatos: JPG, PNG, WebP. Máximo 5MB.
                     </div>

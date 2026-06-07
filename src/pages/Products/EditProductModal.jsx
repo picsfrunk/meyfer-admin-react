@@ -25,6 +25,7 @@ const EditProductModal = ({ visible, product, onSave, onCancel }) => {
     const [categories, setCategories] = useState([]);
     const [categoriesLoading, setCategoriesLoading] = useState(false);
     const [fileList, setFileList] = useState([]);
+    const [selectedImageFile, setSelectedImageFile] = useState(null);
     const [imageLoadError, setImageLoadError] = useState(false);
     const watchedImageUrl = Form.useWatch('image_url', form);
     const currentImageUrl = watchedImageUrl !== undefined ? watchedImageUrl : getProductImageUrl(product);
@@ -48,10 +49,12 @@ const EditProductModal = ({ visible, product, onSave, onCancel }) => {
                 image_url: product.image_url,
             });
             setFileList([]); // Reset file list when opening modal
+            setSelectedImageFile(null);
             setImageLoadError(false);
         } else if (!visible) {
             form.resetFields();
             setFileList([]);
+            setSelectedImageFile(null);
             setImageLoadError(false);
         }
     }, [visible, product, form]);
@@ -119,11 +122,11 @@ const EditProductModal = ({ visible, product, onSave, onCancel }) => {
             formData.append('category_name', selectedCategory.category_name);
             if (values.brand !== undefined) formData.append('brand', values.brand);
             if (values.list_price !== undefined) formData.append('list_price', values.list_price.toString());
-            if (values.image_url !== undefined) formData.append('image_url', values.image_url);
+            if (values.image_url?.trim()) formData.append('image_url', values.image_url.trim());
 
             // Agregar imagen si existe
-            if (fileList.length > 0) {
-                formData.append('image', fileList[0].originFileObj);
+            if (selectedImageFile) {
+                formData.append('image', selectedImageFile);
             }
 
             await productsAPI.update(product.product_id, formData);
@@ -136,8 +139,9 @@ const EditProductModal = ({ visible, product, onSave, onCancel }) => {
     };
 
     const uploadProps = {
-        onRemove: (file) => {
+        onRemove: () => {
             setFileList([]);
+            setSelectedImageFile(null);
         },
         beforeUpload: (file) => {
             const isValidType = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
@@ -153,6 +157,7 @@ const EditProductModal = ({ visible, product, onSave, onCancel }) => {
             }
 
             setFileList([file]);
+            setSelectedImageFile(file);
             return false; // Prevent auto upload
         },
         fileList,
