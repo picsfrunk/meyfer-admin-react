@@ -18,6 +18,16 @@ api.interceptors.request.use(
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
+
+        if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+            if (typeof config.headers?.delete === 'function') {
+                config.headers.delete('Content-Type');
+            } else if (config.headers) {
+                delete config.headers['Content-Type'];
+                delete config.headers['content-type'];
+            }
+        }
+
         return config;
     },
     (error) => {
@@ -58,22 +68,10 @@ export const configAPI = {
 export const productsAPI = {
     getAll: (params = {}) => api.get('/products/scraped', { params }),
     getById: (id) => api.get(`/products/scraped/${id}`),
-    create: (formData) => api.post('/admin/products', formData, {
-        headers: {
-            'Content-Type': 'multipart/form-data',
-        },
-    }),
-    update: (id, formData) => api.put(`/admin/products/${id}`, formData, {
-        headers: {
-            'Content-Type': 'multipart/form-data',
-        },
-    }),
+    create: (data) => api.post('/admin/products', data),
+    update: (id, data) => api.put(`/admin/products/${id}`, data),
     delete: (id) => api.delete(`/admin/products/${id}`),
-    updatePrice: (id, price) => api.put(`/admin/products/${id}`, { list_price: price }, {
-        headers: {
-            'Content-Type': 'multipart/form-data',
-        },
-    }),
+    updatePrice: (id, price) => api.put(`/admin/products/${id}`, { list_price: price }),
     getCategories: () => api.get('/categories'),
     getBrands: () => api.get('/products/brands'),
 };
