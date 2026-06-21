@@ -13,6 +13,7 @@ import Products from './pages/Products/Products.jsx';
 import JobsPage from './pages/JobsPage.jsx';
 import CustomersPage from './pages/CustomersPage';
 import HelpPage from './pages/HelpPage';
+import PriceListImportPage from './pages/PriceListImportPage.jsx';
 
 // Configuración de tema para Ant Design
 const theme = {
@@ -72,6 +73,17 @@ function App() {
                                 <ProtectedRoute>
                                     <DashboardLayout>
                                         <Products />
+                                    </DashboardLayout>
+                                </ProtectedRoute>
+                            }
+                        />
+
+                        <Route
+                            path="/price-list-import"
+                            element={
+                                <ProtectedRoute>
+                                    <DashboardLayout>
+                                        <PriceListImportPage />
                                     </DashboardLayout>
                                 </ProtectedRoute>
                             }

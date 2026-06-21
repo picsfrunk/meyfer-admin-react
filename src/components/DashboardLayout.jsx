@@ -11,6 +11,7 @@ import {
     AppstoreOutlined,
     TeamOutlined,
     QuestionCircleOutlined,
+    DollarOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -91,6 +92,15 @@ const DashboardLayout = ({ children }) => {
             label: 'Catálogo',
             onClick: () => {
                 navigate('/catalog');
+                if (isMobile) setDrawerVisible(false);
+            },
+        },
+        {
+            key: '/price-list-import',
+            icon: <DollarOutlined />,
+            label: 'Lista de precios',
+            onClick: () => {
+                navigate('/price-list-import');
                 if (isMobile) setDrawerVisible(false);
             },
         },
