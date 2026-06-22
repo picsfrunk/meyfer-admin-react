@@ -630,8 +630,14 @@ const Catalog = () => {
 
                     <Divider style={{ margin: isMobile ? '8px 0' : '12px 0' }} />
 
-                    <Row gutter={[12, 12]} align="middle">
-                        <Col xs={24} lg={14}>
+                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                        <Text strong>Archivo manual</Text>
+                        <Space
+                            wrap
+                            align="start"
+                            size={isMobile ? 8 : 12}
+                            style={{ width: '100%' }}
+                        >
                             <Upload
                                 accept=".csv,.xlsx"
                                 beforeUpload={handlePriceListFileSelect}
@@ -643,23 +649,21 @@ const Catalog = () => {
                                     Seleccionar CSV/XLSX
                                 </Button>
                             </Upload>
-                            <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: isMobile ? '12px' : '14px' }}>
-                                Se aceptan archivos .csv y .xlsx. No se acepta .xls.
-                            </Text>
-                        </Col>
-                        <Col xs={24} lg={10}>
                             <Button
                                 type="primary"
                                 icon={<FileExcelOutlined />}
                                 onClick={handleUploadPriceListFile}
                                 loading={priceListUploading}
                                 disabled={!selectedPriceListFile}
-                                block
+                                style={{ width: isMobile ? '100%' : undefined }}
                             >
                                 Ejecutar desde archivo
                             </Button>
-                        </Col>
-                    </Row>
+                        </Space>
+                        <Text type="secondary" style={{ display: 'block', fontSize: isMobile ? '12px' : '14px' }}>
+                            Se aceptan archivos .csv y .xlsx. No se acepta .xls.
+                        </Text>
+                    </Space>
 
                     {priceImportFeedback && (
                         <Alert
