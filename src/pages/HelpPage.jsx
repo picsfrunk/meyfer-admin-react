@@ -137,6 +137,7 @@ const HelpPage = () => {
                         'Usá Clientes para crear clientes, editar datos y consultar sus pedidos.',
                         'Usá Productos para buscar, crear o editar productos visibles.',
                         'Usá Catálogo para actualizar catálogo por completo o por categorías.',
+                        'Usá Catálogo para configurar o ejecutar importaciones de precios desde CSV/XLSX.',
                         'Usá Procesos para ver avances, historial y Revisar precios.',
                     ]}
                 />
@@ -318,6 +319,18 @@ const HelpPage = () => {
                         'Después de iniciar la actualización, entrá a Procesos para seguir el avance.',
                     ]}
                     warning="La actualización puede tardar varios minutos. Evitá iniciarla muchas veces seguidas."
+                />
+                <ManualCard
+                    title="Cómo importar lista de precios"
+                    description="Catálogo permite actualizar precios de productos existentes desde una URL configurada o desde un archivo manual."
+                    steps={[
+                        'Entrá a Catálogo y buscá el bloque Actualización de precios por lista.',
+                        'Revisá o guardá la URL de la lista de precios si vas a importar desde la fuente configurada.',
+                        'Presioná Ejecutar desde URL configurada para iniciar el proceso con la URL guardada.',
+                        'Para una carga manual, seleccioná un archivo .csv o .xlsx y presioná Ejecutar importación desde archivo.',
+                        'Revisá la respuesta inmediata para copiar el jobId o fileId si necesitás consultar soporte técnico.',
+                    ]}
+                    warning="La importación solo actualiza precios: Codigo se usa como product_id y Precio como list_price. No crea ni elimina productos."
                 />
                 <ManualCard
                     title="Cómo ver procesos básicos"
