@@ -137,7 +137,7 @@ const HelpPage = () => {
                         'Usá Clientes para crear clientes, editar datos y consultar sus pedidos.',
                         'Usá Productos para buscar, crear o editar productos visibles.',
                         'Usá Catálogo para actualizar catálogo por completo o por categorías.',
-                        'Usá Lista de precios para configurar o ejecutar importaciones de precios desde CSV/XLSX.',
+                        'Usá Catálogo para configurar o ejecutar importaciones de precios desde CSV/XLSX.',
                         'Usá Procesos para ver avances, historial y Revisar precios.',
                     ]}
                 />
@@ -322,9 +322,9 @@ const HelpPage = () => {
                 />
                 <ManualCard
                     title="Cómo importar lista de precios"
-                    description="Lista de precios permite actualizar precios de productos existentes desde una URL configurada o desde un archivo manual."
+                    description="Catálogo permite actualizar precios de productos existentes desde una URL configurada o desde un archivo manual."
                     steps={[
-                        'Entrá a Lista de precios.',
+                        'Entrá a Catálogo y buscá el bloque Actualización de precios por lista.',
                         'Revisá o guardá la URL de la lista de precios si vas a importar desde la fuente configurada.',
                         'Presioná Ejecutar desde URL configurada para iniciar el proceso con la URL guardada.',
                         'Para una carga manual, seleccioná un archivo .csv o .xlsx y presioná Ejecutar importación desde archivo.',
