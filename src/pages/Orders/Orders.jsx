@@ -69,7 +69,7 @@ const Orders = () => {
                 setDefaultStatusKey('');
                 setDeletedStatusKey('');
                 setStatusColors({ todos: 'geekblue' });
-                return { statuses: [], deleted: '', initialStatuses: [] };
+                return { statuses: [], deleted: '' };
             }
 
             const generatedDefinitions = buildStatusDefinitions(statuses);
@@ -90,7 +90,6 @@ const Orders = () => {
             return {
                 statuses: generatedDefinitions,
                 deleted: detectedDeletedStatus,
-                initialStatuses: validDefaultStatusKey ? [validDefaultStatusKey] : [],
             };
         } catch (error) {
             message.error(getApiErrorMessage(error, 'Error al cargar estados de pedidos'));
@@ -99,7 +98,7 @@ const Orders = () => {
             setDefaultStatusKey('');
             setDeletedStatusKey('');
             setStatusColors({ todos: 'geekblue' });
-            return { statuses: [], deleted: '', initialStatuses: [] };
+            return { statuses: [], deleted: '' };
         } finally {
             setStatusesLoading(false);
         }
@@ -152,10 +151,9 @@ const Orders = () => {
 
     const handleStatusToggle = async (statusKey) => {
         if (statusKey === 'todos') {
-            const newAll = !allSelected;
-            setAllSelected(newAll);
+            setAllSelected(true);
             setSelectedStatuses([]);
-            await loadOrders([], showDeleted, newAll, statusDefinitions, deletedStatusKey);
+            await loadOrders([], showDeleted, true, statusDefinitions, deletedStatusKey);
             return;
         }
         setAllSelected(false);
@@ -163,6 +161,12 @@ const Orders = () => {
             ? selectedStatuses.filter((s) => s !== statusKey)
             : [...selectedStatuses, statusKey];
         setSelectedStatuses(newStatuses);
+        if (newStatuses.length === 0) {
+            setAllSelected(true);
+            await loadOrders([], showDeleted, true, statusDefinitions, deletedStatusKey);
+            return;
+        }
+
         await loadOrders(newStatuses, showDeleted, false, statusDefinitions, deletedStatusKey);
     };
 
@@ -299,9 +303,10 @@ const Orders = () => {
 
     useEffect(() => {
         const initializeOrders = async () => {
-            const { statuses, deleted, initialStatuses } = await loadOrderStatuses();
-            setSelectedStatuses(initialStatuses);
-            await loadOrders(initialStatuses, false, false, statuses, deleted);
+            const { statuses, deleted } = await loadOrderStatuses();
+            setSelectedStatuses([]);
+            setAllSelected(true);
+            await loadOrders([], false, true, statuses, deleted);
         };
 
         initializeOrders();
