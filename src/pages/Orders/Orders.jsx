@@ -108,12 +108,18 @@ const Orders = () => {
         statusFilters = selectedStatuses,
         includeDeleted = false,
         all = false,
+        statusesSource = statusDefinitions,
         deletedStatusSource = deletedStatusKey
     ) => {
         setLoading(true);
         try {
-            let statusesToFetch = all ? [] : [...statusFilters];
-            if (!all && includeDeleted && deletedStatusSource) statusesToFetch.push(deletedStatusSource);
+            let statusesToFetch = [...statusFilters];
+            if (all) {
+                statusesToFetch = statusesSource
+                    .filter((statusDef) => !isDeletedStatus(statusDef.label))
+                    .map((statusDef) => statusDef.key);
+            }
+            if (includeDeleted && deletedStatusSource) statusesToFetch.push(deletedStatusSource);
 
             statusesToFetch = [...new Set(statusesToFetch)];
 
@@ -141,13 +147,13 @@ const Orders = () => {
         }
     };
 
-    const refreshOrders = () => loadOrders(selectedStatuses, showDeleted, allSelected, deletedStatusKey);
+    const refreshOrders = () => loadOrders(selectedStatuses, showDeleted, allSelected, statusDefinitions, deletedStatusKey);
 
     const handleStatusToggle = async (statusKey) => {
         if (statusKey === 'todos') {
             setAllSelected(true);
             setSelectedStatuses([]);
-            await loadOrders([], showDeleted, true, deletedStatusKey);
+            await loadOrders([], showDeleted, true, statusDefinitions, deletedStatusKey);
             return;
         }
         setAllSelected(false);
@@ -157,16 +163,16 @@ const Orders = () => {
         setSelectedStatuses(newStatuses);
         if (newStatuses.length === 0) {
             setAllSelected(true);
-            await loadOrders([], showDeleted, true, deletedStatusKey);
+            await loadOrders([], showDeleted, true, statusDefinitions, deletedStatusKey);
             return;
         }
 
-        await loadOrders(newStatuses, showDeleted, false, deletedStatusKey);
+        await loadOrders(newStatuses, showDeleted, false, statusDefinitions, deletedStatusKey);
     };
 
     const handleDeletedToggle = async (checked) => {
         setShowDeleted(checked);
-        await loadOrders(selectedStatuses, checked, allSelected, deletedStatusKey);
+        await loadOrders(selectedStatuses, checked, allSelected, statusDefinitions, deletedStatusKey);
     };
 
     const handleStatusUpdate = async (orderId, newStatus) => {
@@ -297,10 +303,10 @@ const Orders = () => {
 
     useEffect(() => {
         const initializeOrders = async () => {
-            const { deleted } = await loadOrderStatuses();
+            const { statuses, deleted } = await loadOrderStatuses();
             setSelectedStatuses([]);
             setAllSelected(true);
-            await loadOrders([], false, true, deleted);
+            await loadOrders([], false, true, statuses, deleted);
         };
 
         initializeOrders();
