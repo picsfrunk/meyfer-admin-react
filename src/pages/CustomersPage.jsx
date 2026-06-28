@@ -12,6 +12,7 @@ import {
     Alert,
     message,
     Card,
+    Tooltip,
     Row,
     Col,
 } from 'antd';
@@ -332,12 +333,20 @@ const CustomersPage = () => {
         });
     };
 
-    const handleCopyCode = (code) => {
-        navigator.clipboard.writeText(code).then(() => {
-            message.success('Código copiado');
-        }).catch(() => {
+    const handleCopyCode = async (code, event) => {
+        event?.stopPropagation();
+
+        if (!code || !navigator.clipboard?.writeText) {
             message.error('No se pudo copiar el código al portapapeles');
-        });
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(code);
+            message.success('Código copiado');
+        } catch {
+            message.error('No se pudo copiar el código al portapapeles');
+        }
     };
 
     const handleDeleteOrder = async (order) => {
@@ -477,7 +486,22 @@ const CustomersPage = () => {
             key: 'customerCode',
             width: 130,
             sorter: (a, b) => (a.customerCode || '').localeCompare(b.customerCode || ''),
-            render: (code) => <Tag color="blue">{code}</Tag>,
+            render: (code) => (
+                <Space size={4}>
+                    {code ? <Tag color="blue" style={{ marginRight: 0 }}>{code}</Tag> : <Text type="secondary">Sin código</Text>}
+                    {code ? (
+                        <Tooltip title="Copiar código">
+                            <Button
+                                aria-label="Copiar código"
+                                icon={<CopyOutlined />}
+                                size="small"
+                                type="text"
+                                onClick={(event) => handleCopyCode(code, event)}
+                            />
+                        </Tooltip>
+                    ) : null}
+                </Space>
+            ),
         },
         {
             title: 'Cliente',
@@ -549,7 +573,24 @@ const CustomersPage = () => {
                 <div style={{ flex: 1 }}>
                     <Text strong style={{ fontSize: '13px' }}>{customer.cliente || 'Sin nombre'}</Text>
                     <div style={{ marginTop: 4 }}>
-                        <Tag color="blue" style={{ fontSize: '11px' }}>{customer.customerCode}</Tag>
+                        <Space size={4}>
+                            {customer.customerCode ? (
+                                <Tag color="blue" style={{ fontSize: '11px', marginRight: 0 }}>{customer.customerCode}</Tag>
+                            ) : (
+                                <Text type="secondary" style={{ fontSize: '11px' }}>Sin código</Text>
+                            )}
+                            {customer.customerCode ? (
+                                <Tooltip title="Copiar código">
+                                    <Button
+                                        aria-label="Copiar código"
+                                        icon={<CopyOutlined />}
+                                        size="small"
+                                        type="text"
+                                        onClick={(event) => handleCopyCode(customer.customerCode, event)}
+                                    />
+                                </Tooltip>
+                            ) : null}
+                        </Space>
                     </div>
                 </div>
             </div>
