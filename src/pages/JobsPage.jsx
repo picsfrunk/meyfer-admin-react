@@ -117,6 +117,47 @@ const ScopeTag = ({ type, params }) => {
     );
 };
 
+const renderJobResult = (job) => {
+    const res = job.result;
+    if (job.status === 'canceled') return <Tag icon={<StopOutlined />} color="default">Cancelado</Tag>;
+    if (!res) return <Text type="secondary">—</Text>;
+    if (res.error) return <Tag color="error" icon={<CloseCircleOutlined />}>Error</Tag>;
+    if (job.type === 'priceCheck') {
+        return (
+            <Tooltip title={`${res.summary?.new ?? 0} nuevos · ${res.summary?.removed ?? 0} eliminados`}>
+                <Tag color={res.summary?.changed > 0 ? 'orange' : 'green'}>
+                    {res.summary?.changed ?? 0} cambios
+                </Tag>
+            </Tooltip>
+        );
+    }
+    if (job.type === 'categoriesRestore') {
+        return (
+            <Tooltip title={`${res.errors ?? 0} errores`}>
+                <Text>{res.modified ?? res.total ?? '—'} modificados</Text>
+            </Tooltip>
+        );
+    }
+    if (job.type === 'categoriesReorganize') {
+        const dryRun = res.dryRun ?? job.params?.dryRun;
+        return (
+            <Tooltip title={`${res.errors ?? 0} errores`}>
+                <Space size={4} wrap>
+                    <Tag color={dryRun === false ? 'volcano' : 'green'}>
+                        {dryRun === false ? 'Aplicado' : 'Simulación'}
+                    </Tag>
+                    <Text>{res.modified ?? res.matched ?? '—'} cambios</Text>
+                </Space>
+            </Tooltip>
+        );
+    }
+    return (
+        <Tooltip title={`${res.errors ?? 0} errores`}>
+            <Text>{res.total ?? '—'} guardados</Text>
+        </Tooltip>
+    );
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // TRIGGER MODAL
 // ─────────────────────────────────────────────────────────────────────────────
@@ -834,6 +875,7 @@ const ProcesosHistoryTab = () => {
     const [total, setTotal]         = useState(0);
     const [page, setPage]           = useState(1);
     const [loading, setLoading]     = useState(false);
+    const [isMobile, setIsMobile]   = useState(false);
     const [statusFilter, setStatus] = useState(undefined);
     const [typeFilter, setType]     = useState(undefined);
     const [selectedJob, setSelectedJob] = useState(null);
@@ -856,6 +898,13 @@ const ProcesosHistoryTab = () => {
     }, []);
 
     useEffect(() => { fetch(1, statusFilter, typeFilter); }, [fetch]);
+
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     const handleFilter = (newStatus, newType) => {
         setPage(1);
@@ -901,46 +950,7 @@ const ProcesosHistoryTab = () => {
         {
             title: 'Resultado',
             key: 'result',
-            render: (_, r) => {
-                const res = r.result;
-                if (r.status === 'canceled') return <Tag icon={<StopOutlined />} color="default">Cancelado</Tag>;
-                if (!res) return <Text type="secondary">—</Text>;
-                if (res.error) return <Tag color="error" icon={<CloseCircleOutlined />}>Error</Tag>;
-                if (r.type === 'priceCheck') {
-                    return (
-                        <Tooltip title={`${res.summary?.new ?? 0} nuevos · ${res.summary?.removed ?? 0} eliminados`}>
-                            <Tag color={res.summary?.changed > 0 ? 'orange' : 'green'}>
-                                {res.summary?.changed ?? 0} cambios
-                            </Tag>
-                        </Tooltip>
-                    );
-                }
-                if (r.type === 'categoriesRestore') {
-                    return (
-                        <Tooltip title={`${res.errors ?? 0} errores`}>
-                            <Text>{res.modified ?? res.total ?? '—'} modificados</Text>
-                        </Tooltip>
-                    );
-                }
-                if (r.type === 'categoriesReorganize') {
-                    const dryRun = res.dryRun ?? r.params?.dryRun;
-                    return (
-                        <Tooltip title={`${res.errors ?? 0} errores`}>
-                            <Space size={4}>
-                                <Tag color={dryRun === false ? 'volcano' : 'green'}>
-                                    {dryRun === false ? 'Aplicado' : 'Simulación'}
-                                </Tag>
-                                <Text>{res.modified ?? res.matched ?? '—'} cambios</Text>
-                            </Space>
-                        </Tooltip>
-                    );
-                }
-                return (
-                    <Tooltip title={`${res.errors ?? 0} errores`}>
-                        <Text>{res.total ?? '—'} guardados</Text>
-                    </Tooltip>
-                );
-            },
+            render: (_, r) => renderJobResult(r),
         },
         {
             title: '',
@@ -952,6 +962,58 @@ const ProcesosHistoryTab = () => {
             ),
         },
     ];
+
+    const MobileJobCard = ({ job }) => (
+        <Card
+            size="small"
+            style={{ marginBottom: 12 }}
+            styles={{ body: { padding: 12 } }}
+        >
+            <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
+                    <Space direction="vertical" size={4} style={{ minWidth: 0 }}>
+                        <Tag color={JOB_TYPE_COLORS[job.type]} style={{ marginRight: 0, whiteSpace: 'normal' }}>
+                            {JOB_TYPE_LABELS[job.type] ?? job.type}
+                        </Tag>
+                        {devMode && (
+                            <Text code style={{ fontSize: 11, wordBreak: 'break-all' }}>{job.jobId}</Text>
+                        )}
+                    </Space>
+                    <StatusTag status={job.status} />
+                </div>
+
+                <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                        <Text type="secondary" style={{ fontSize: 12 }}>Iniciado</Text>
+                        <Text style={{ fontSize: 12, textAlign: 'right' }}>{formatDate(job.startedAt)}</Text>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                        <Text type="secondary" style={{ fontSize: 12 }}>Duración</Text>
+                        <Text style={{ fontSize: 12 }}>{formatDuration(job.durationMs)}</Text>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                        <Text type="secondary" style={{ fontSize: 12 }}>Espera</Text>
+                        <Text style={{ fontSize: 12 }}>{formatDuration(job.waitTimeMs)}</Text>
+                    </div>
+                </Space>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                    <Space size={4} wrap>
+                        <ScopeTag type={job.type} params={job.params} />
+                        {renderJobResult(job)}
+                    </Space>
+                    <Button
+                        type="link"
+                        size="small"
+                        icon={<InfoCircleOutlined />}
+                        onClick={() => setSelectedJob(job)}
+                    >
+                        Ver
+                    </Button>
+                </div>
+            </Space>
+        </Card>
+    );
 
     return (
         <>
@@ -988,15 +1050,28 @@ const ProcesosHistoryTab = () => {
                 />
             </Space>
 
-            <Table
-                dataSource={jobs}
-                columns={columns}
-                rowKey="jobId"
-                loading={loading}
-                pagination={false}
-                size="small"
-                locale={{ emptyText: <Empty description="Sin registros" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
-            />
+            {isMobile ? (
+                <Spin spinning={loading}>
+                    {jobs.length === 0 ? (
+                        <Empty description="Sin registros" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                    ) : (
+                        jobs.map((job) => (
+                            <MobileJobCard key={job.jobId} job={job} />
+                        ))
+                    )}
+                </Spin>
+            ) : (
+                <Table
+                    dataSource={jobs}
+                    columns={columns}
+                    rowKey="jobId"
+                    loading={loading}
+                    pagination={false}
+                    size="small"
+                    scroll={{ x: 900 }}
+                    locale={{ emptyText: <Empty description="Sin registros" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+                />
+            )}
 
             {total > PAGE_SIZE && (
                 <div style={{ textAlign: 'right', marginTop: 12 }}>
