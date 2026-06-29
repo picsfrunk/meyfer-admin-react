@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Space, Typography, message, Modal } from 'antd';
 import { MailOutlined, ReloadOutlined } from '@ant-design/icons';
 import { ordersAPI } from '../../services/api';
@@ -55,7 +55,7 @@ const Orders = () => {
             })),
     ];
 
-    const loadOrderStatuses = async () => {
+    const loadOrderStatuses = useCallback(async () => {
         setStatusesLoading(true);
         try {
             const { data } = await ordersAPI.getStatuses();
@@ -102,14 +102,14 @@ const Orders = () => {
         } finally {
             setStatusesLoading(false);
         }
-    };
+    }, []);
 
-    const loadOrders = async (
-        statusFilters = selectedStatuses,
+    const loadOrders = useCallback(async (
+        statusFilters = [],
         includeDeleted = false,
         all = false,
-        statusesSource = statusDefinitions,
-        deletedStatusSource = deletedStatusKey
+        statusesSource = [],
+        deletedStatusSource = ''
     ) => {
         setLoading(true);
         try {
@@ -145,7 +145,7 @@ const Orders = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     const refreshOrders = () => loadOrders(selectedStatuses, showDeleted, allSelected, statusDefinitions, deletedStatusKey);
 
@@ -304,13 +304,12 @@ const Orders = () => {
     useEffect(() => {
         const initializeOrders = async () => {
             const { statuses, deleted } = await loadOrderStatuses();
-            setSelectedStatuses([]);
             setAllSelected(true);
             await loadOrders([], false, true, statuses, deleted);
         };
 
         initializeOrders();
-    }, []);
+    }, [loadOrderStatuses, loadOrders]);
 
     return (
         <div>

@@ -897,7 +897,7 @@ const ProcesosHistoryTab = () => {
         }
     }, []);
 
-    useEffect(() => { fetch(1, statusFilter, typeFilter); }, [fetch]);
+    useEffect(() => { fetch(1, statusFilter, typeFilter); }, [fetch, statusFilter, typeFilter]);
 
     useEffect(() => {
         const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -906,9 +906,8 @@ const ProcesosHistoryTab = () => {
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
-    const handleFilter = (newStatus, newType) => {
+    const handleFilter = () => {
         setPage(1);
-        fetch(1, newStatus, newType);
     };
 
     const columns = [
@@ -1024,7 +1023,7 @@ const ProcesosHistoryTab = () => {
                     allowClear
                     style={{ width: 140 }}
                     value={statusFilter}
-                    onChange={(v) => { setStatus(v); handleFilter(v, typeFilter); }}
+                    onChange={(v) => { setStatus(v); handleFilter(); }}
                     options={[
                         { value: 'enqueued',  label: 'En espera' },
                         { value: 'running',   label: 'Ejecutando' },
@@ -1038,7 +1037,7 @@ const ProcesosHistoryTab = () => {
                     allowClear
                     style={{ width: 180 }}
                     value={typeFilter}
-                    onChange={(v) => { setType(v); handleFilter(statusFilter, v); }}
+                    onChange={(v) => { setType(v); handleFilter(); }}
                     options={[
                         ...(devMode ? [{ value: 'sitemapScraper',  label: 'Actualización por sitemap' }] : []),
                         { value: 'categoryScraper', label: 'Actualizar catálogo' },
