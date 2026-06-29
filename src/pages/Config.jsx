@@ -271,6 +271,7 @@ const Config = () => {
                                             key={index}
                                             actions={[
                                                 <Popconfirm
+                                                    key="deactivate-email"
                                                     title="¿Desactivar este email?"
                                                     description="Ya no recibirá notificaciones de pedidos"
                                                     onConfirm={() => handleDeactivateEmail(email)}
