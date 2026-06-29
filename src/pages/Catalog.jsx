@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     Card,
     Button,
@@ -137,7 +137,7 @@ const Catalog = () => {
         setCategoriesLoading(false);
     };
 
-    const loadPriceListSettings = async () => {
+    const loadPriceListSettings = useCallback(async () => {
         setPriceListSettingsLoading(true);
         try {
             const response = await priceListImportService.getSettings();
@@ -149,13 +149,13 @@ const Catalog = () => {
         } finally {
             setPriceListSettingsLoading(false);
         }
-    };
+    }, [priceListForm]);
 
     useEffect(() => {
         loadLastUpdate();
         loadCategories();
         loadPriceListSettings();
-    }, []);
+    }, [loadPriceListSettings]);
 
     const formatDate = (dateString) => {
         if (!dateString) return 'N/A';

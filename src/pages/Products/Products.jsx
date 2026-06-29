@@ -56,7 +56,7 @@ const Products = () => {
         return params;
     }, [debouncedSearchText, selectedBrand, selectedCategory]);
 
-    const loadProducts = useCallback(async (page = pagination.current, limit = pagination.pageSize) => {
+    const loadProducts = useCallback(async (page, limit) => {
         setLoading(true);
         try {
             const { data } = await productsAPI.getAll(buildProductParams(page, limit));
@@ -85,7 +85,7 @@ const Products = () => {
         } finally {
             setLoading(false);
         }
-    }, [buildProductParams, pagination.current, pagination.pageSize]);
+    }, [buildProductParams]);
 
     const goToFirstPage = () => {
         setPagination((currentPagination) => ({
@@ -106,21 +106,21 @@ const Products = () => {
     const handleSaveCreate = () => {
         // El modal ya maneja la creación del producto y muestra mensajes
         setCreateModalVisible(false);
-        loadProducts(); // Recargar la lista de productos
+        loadProducts(pagination.current, pagination.pageSize); // Recargar la lista de productos
     };
 
     const handleSaveEdit = () => {
         // El modal ya maneja la edición del producto y muestra mensajes
         setEditModalVisible(false);
         setSelectedProduct(null);
-        loadProducts(); // Recargar la lista de productos
+        loadProducts(pagination.current, pagination.pageSize); // Recargar la lista de productos
     };
 
     const handleSavePrice = () => {
         // El modal ya maneja la actualización de precio y muestra mensajes
         setPriceModalVisible(false);
         setSelectedProduct(null);
-        loadProducts(); // Recargar la lista de productos
+        loadProducts(pagination.current, pagination.pageSize); // Recargar la lista de productos
     };
 
     const handleUpdatePrice = (product) => {
@@ -166,6 +166,9 @@ const Products = () => {
         }));
     };
 
+    const currentPage = pagination.current;
+    const currentPageSize = pagination.pageSize;
+
     useEffect(() => {
         const timeoutId = window.setTimeout(() => {
             setDebouncedSearchText(searchText);
@@ -175,8 +178,8 @@ const Products = () => {
     }, [searchText]);
 
     useEffect(() => {
-        loadProducts();
-    }, [loadProducts]);
+        loadProducts(currentPage, currentPageSize);
+    }, [loadProducts, currentPage, currentPageSize]);
 
     return (
         <div>
@@ -188,7 +191,7 @@ const Products = () => {
                     </Button>
                     <Button
                         icon={<ReloadOutlined />}
-                        onClick={() => loadProducts()}
+                        onClick={() => loadProducts(pagination.current, pagination.pageSize)}
                         loading={loading}
                     >
                         Actualizar
