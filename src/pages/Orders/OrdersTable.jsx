@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Space, Tag, Popconfirm, Card, Typography } from 'antd';
 import { EyeOutlined, DeleteOutlined } from '@ant-design/icons';
+import { isDeletedStatus } from '../../models/orderModel';
 
 const { Text } = Typography;
 
@@ -17,6 +18,8 @@ const OrdersTable = ({ orders, loading, statusColors, statusLabels = {}, onOpenO
             onOpenOrder(order);
         }
     };
+
+    const canDeleteOrder = (order) => !isDeletedStatus(order?.status);
 
     useEffect(() => {
         const checkMobile = () => {
@@ -115,19 +118,21 @@ const OrdersTable = ({ orders, loading, statusColors, statusLabels = {}, onOpenO
                     >
                         Ver / editar
                     </Button>
-                    <Popconfirm
-                        title="¿Está seguro de eliminar este pedido?"
-                        onConfirm={() => onDelete(record)}
-                        okText="Sí"
-                        cancelText="No"
-                    >
-                        <Button
-                            icon={<DeleteOutlined />}
-                            size="small"
-                            danger
-                            onClick={(e) => e.stopPropagation()}
-                        />
-                    </Popconfirm>
+                    {canDeleteOrder(record) ? (
+                        <Popconfirm
+                            title="¿Está seguro de eliminar este pedido?"
+                            onConfirm={() => onDelete(record)}
+                            okText="Sí"
+                            cancelText="No"
+                        >
+                            <Button
+                                icon={<DeleteOutlined />}
+                                size="small"
+                                danger
+                                onClick={(e) => e.stopPropagation()}
+                            />
+                        </Popconfirm>
+                    ) : null}
                 </Space>
             ),
             width: 180,
@@ -188,19 +193,21 @@ const OrdersTable = ({ orders, loading, statusColors, statusLabels = {}, onOpenO
                 >
                     Ver / editar
                 </Button>
-                <Popconfirm
-                    title="¿Eliminar pedido?"
-                    onConfirm={() => onDelete(order)}
-                    okText="Sí"
-                    cancelText="No"
-                >
-                    <Button
-                        icon={<DeleteOutlined />}
-                        size="small"
-                        danger
-                        onClick={(e) => e.stopPropagation()}
-                    />
-                </Popconfirm>
+                {canDeleteOrder(order) ? (
+                    <Popconfirm
+                        title="¿Eliminar pedido?"
+                        onConfirm={() => onDelete(order)}
+                        okText="Sí"
+                        cancelText="No"
+                    >
+                        <Button
+                            icon={<DeleteOutlined />}
+                            size="small"
+                            danger
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                    </Popconfirm>
+                ) : null}
             </div>
         </Card>
     );

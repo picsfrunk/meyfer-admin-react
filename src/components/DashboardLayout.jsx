@@ -12,7 +12,7 @@ import {
     TeamOutlined,
     QuestionCircleOutlined,
 } from '@ant-design/icons';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
 import useAdminDevMode from '../hooks/useAdminDevMode';
 

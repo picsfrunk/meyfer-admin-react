@@ -12,6 +12,7 @@ import {
     Alert,
     message,
     Card,
+    Tooltip,
     Row,
     Col,
 } from 'antd';
@@ -22,7 +23,6 @@ import {
     DeleteOutlined,
     CopyOutlined,
     ReloadOutlined,
-    SyncOutlined,
     FileTextOutlined,
     MailOutlined,
 } from '@ant-design/icons';
@@ -292,7 +292,7 @@ const CustomersPage = () => {
                 const code = data?.customerCode || data?.customer?.customerCode || '';
                 handleModalClose();
                 loadCustomers();
-                setSuccessAlert({ code, type: 'create' });
+                setSuccessAlert({ code });
             }
         } catch (error) {
             if (error?.errorFields) return;
@@ -312,32 +312,20 @@ const CustomersPage = () => {
         }
     };
 
-    const handleRegenerateCode = (customer) => {
-        Modal.confirm({
-            title: 'Regenerar código',
-            content: '¿Regenerar el código de este cliente? El código anterior quedará inválido y el cliente no podrá hacer pedidos hasta recibir el nuevo.',
-            okText: 'Regenerar',
-            cancelText: 'Cancelar',
-            onOk: async () => {
-                try {
-                    const { data } = await customersAPI.regenerateCode(customer._id);
-                    const code = data?.customerCode || data?.customer?.customerCode || '';
-                    handleModalClose();
-                    loadCustomers();
-                    setSuccessAlert({ code, type: 'regenerate' });
-                } catch (error) {
-                    message.error(getApiErrorMessage(error, 'Error al regenerar el código'));
-                }
-            },
-        });
-    };
+    const handleCopyCode = async (code, event) => {
+        event?.stopPropagation();
 
-    const handleCopyCode = (code) => {
-        navigator.clipboard.writeText(code).then(() => {
-            message.success('Código copiado');
-        }).catch(() => {
+        if (!code || !navigator.clipboard?.writeText) {
             message.error('No se pudo copiar el código al portapapeles');
-        });
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(code);
+            message.success('Código copiado');
+        } catch {
+            message.error('No se pudo copiar el código al portapapeles');
+        }
     };
 
     const handleDeleteOrder = async (order) => {
@@ -477,7 +465,22 @@ const CustomersPage = () => {
             key: 'customerCode',
             width: 130,
             sorter: (a, b) => (a.customerCode || '').localeCompare(b.customerCode || ''),
-            render: (code) => <Tag color="blue">{code}</Tag>,
+            render: (code) => (
+                <Space size={4}>
+                    {code ? <Tag color="blue" style={{ marginRight: 0 }}>{code}</Tag> : <Text type="secondary">Sin código</Text>}
+                    {code ? (
+                        <Tooltip title="Copiar código">
+                            <Button
+                                aria-label="Copiar código"
+                                icon={<CopyOutlined />}
+                                size="small"
+                                type="text"
+                                onClick={(event) => handleCopyCode(code, event)}
+                            />
+                        </Tooltip>
+                    ) : null}
+                </Space>
+            ),
         },
         {
             title: 'Cliente',
@@ -549,7 +552,24 @@ const CustomersPage = () => {
                 <div style={{ flex: 1 }}>
                     <Text strong style={{ fontSize: '13px' }}>{customer.cliente || 'Sin nombre'}</Text>
                     <div style={{ marginTop: 4 }}>
-                        <Tag color="blue" style={{ fontSize: '11px' }}>{customer.customerCode}</Tag>
+                        <Space size={4}>
+                            {customer.customerCode ? (
+                                <Tag color="blue" style={{ fontSize: '11px', marginRight: 0 }}>{customer.customerCode}</Tag>
+                            ) : (
+                                <Text type="secondary" style={{ fontSize: '11px' }}>Sin código</Text>
+                            )}
+                            {customer.customerCode ? (
+                                <Tooltip title="Copiar código">
+                                    <Button
+                                        aria-label="Copiar código"
+                                        icon={<CopyOutlined />}
+                                        size="small"
+                                        type="text"
+                                        onClick={(event) => handleCopyCode(customer.customerCode, event)}
+                                    />
+                                </Tooltip>
+                            ) : null}
+                        </Space>
                     </div>
                 </div>
             </div>
@@ -612,7 +632,6 @@ const CustomersPage = () => {
                 <ul style={{ marginBottom: 0, paddingLeft: 20 }}>
                     <li><Text strong>Nuevo cliente</Text> crea un cliente y genera automáticamente su código.</li>
                     <li>El código de cliente es el dato que identifica al cliente cuando crea un pedido.</li>
-                    <li><Text strong>Regenerar código</Text> invalida el código anterior; usalo solo cuando necesites reemplazarlo.</li>
                     <li><Text strong>Ver Pedidos</Text> muestra los pedidos asociados al cliente y permite abrir el mismo modal de gestión de pedidos.</li>
                     <li>La dirección registrada del cliente puede usarse como base para la entrega, pero cada pedido guarda su propia dirección efectiva.</li>
                 </ul>
@@ -625,7 +644,7 @@ const CustomersPage = () => {
                     closable
                     onClose={() => setSuccessAlert(null)}
                     style={{ marginBottom: 16 }}
-                    message={`${successAlert.type === 'regenerate' ? 'Código regenerado' : 'Cliente creado'}. Código asignado: ${successAlert.code}`}
+                    message={`Cliente creado. Código asignado: ${successAlert.code}`}
                     action={
                         <Button
                             size="small"
@@ -685,13 +704,6 @@ const CustomersPage = () => {
                         <Space wrap>
                             <span>Editar cliente</span>
                             <Tag color="blue">{editingCustomer.customerCode}</Tag>
-                            <Button
-                                size="small"
-                                icon={<SyncOutlined />}
-                                onClick={() => handleRegenerateCode(editingCustomer)}
-                            >
-                                Regenerar código
-                            </Button>
                         </Space>
                     ) : (
                         'Nuevo cliente'

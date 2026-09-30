@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Card,
     Form,
@@ -39,7 +39,7 @@ const Config = () => {
     const [margin, setMargin] = useState(null);
     const [adminEmails, setAdminEmails] = useState([]);
 
-    const loadConfig = async () => {
+    const loadConfig = useCallback(async () => {
         setLoading(true);
         try {
             const profitRes = await configAPI.getProfit();
@@ -56,9 +56,9 @@ const Config = () => {
             console.error('Error loading config:', error);
         }
         setLoading(false);
-    };
+    }, [form]);
 
-    const loadAdminEmails = async () => {
+    const loadAdminEmails = useCallback(async () => {
         setEmailsLoading(true);
         try {
             const response = await configAPI.getAdminEmails();
@@ -74,7 +74,7 @@ const Config = () => {
             console.error('Error loading admin emails:', error);
         }
         setEmailsLoading(false);
-    };
+    }, []);
 
     const handleUpdateMargin = async (values) => {
         setLoading(true);
@@ -115,7 +115,7 @@ const Config = () => {
     useEffect(() => {
         loadConfig();
         loadAdminEmails();
-    }, []);
+    }, [loadConfig, loadAdminEmails]);
 
     return (
         <div>
@@ -271,6 +271,7 @@ const Config = () => {
                                             key={index}
                                             actions={[
                                                 <Popconfirm
+                                                    key="deactivate-email"
                                                     title="¿Desactivar este email?"
                                                     description="Ya no recibirá notificaciones de pedidos"
                                                     onConfirm={() => handleDeactivateEmail(email)}

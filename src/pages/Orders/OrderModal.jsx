@@ -33,7 +33,7 @@ import {
 } from '@ant-design/icons';
 import { ordersAPI, productsAPI } from '../../services/api';
 import { getApiErrorMessage } from '../../utils/apiError';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/useAuth';
 
 const { Title, Text } = Typography;
 

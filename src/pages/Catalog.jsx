@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     Card,
     Button,
     Form,
     Select,
+    Input,
     InputNumber,
     Space,
     Typography,
@@ -18,19 +19,23 @@ import {
     Spin,
     Collapse,
     Modal,
+    Upload,
 } from 'antd';
 import {
     PlayCircleOutlined,
     ShoppingOutlined,
     ReloadOutlined,
-    CalendarOutlined,
     FileExcelOutlined,
     AppstoreOutlined,
     ExclamationCircleOutlined,
     WarningOutlined,
+    LinkOutlined,
+    SaveOutlined,
+    UploadOutlined,
 } from '@ant-design/icons';
 import { productsAPI, configAPI } from '../services/api';
 import { scraperAPI } from '../services/scraperAPI';
+import { priceListImportService } from '../services/priceListImportService';
 import { getApiErrorMessage } from '../utils/apiError';
 import HelpPanel from '../components/common/HelpPanel';
 import useAdminDevMode from '../hooks/useAdminDevMode';
@@ -39,10 +44,32 @@ const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
 const { Panel } = Collapse;
 
+const ALLOWED_PRICE_FILE_EXTENSIONS = ['csv', 'xlsx'];
+
+const getFileExtension = (fileName = '') => {
+    const parts = fileName.split('.');
+    return parts.length > 1 ? parts.pop().toLowerCase() : '';
+};
+
+const isAllowedPriceFile = (file) => (
+    ALLOWED_PRICE_FILE_EXTENSIONS.includes(getFileExtension(file?.name))
+);
+
+const normalizePriceListSettings = (data) => data?.settings || data?.data || data || {};
+
+const getSourceUrl = (settings) => (
+    settings?.sourceUrl ||
+    settings?.source_url ||
+    ''
+);
+
+const getImportJobId = (data) => data?.jobId || data?.result?.jobId || null;
+const getImportFileId = (data) => data?.fileId || data?.result?.fileId || null;
+
 const Catalog = () => {
     const [form] = Form.useForm();
+    const [priceListForm] = Form.useForm();
     const [loading, setLoading] = useState(false);
-    const [updateLoading, setUpdateLoading] = useState(false);
     const [categoriesLoading, setCategoriesLoading] = useState(false);
     const [lastUpdate, setLastUpdate] = useState(null);
     const [categories, setCategories] = useState([]);
@@ -50,7 +77,19 @@ const Catalog = () => {
     const [selectedCategories, setSelectedCategories] = useState([]);
     const [selectAll, setSelectAll] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
+    const [priceListSettings, setPriceListSettings] = useState({});
+    const [priceListSettingsLoading, setPriceListSettingsLoading] = useState(false);
+    const [priceListSaving, setPriceListSaving] = useState(false);
+    const [priceListRunningUrl, setPriceListRunningUrl] = useState(false);
+    const [priceListUploading, setPriceListUploading] = useState(false);
+    const [selectedPriceListFile, setSelectedPriceListFile] = useState(null);
+    const [priceImportFeedback, setPriceImportFeedback] = useState(null);
     const { devMode } = useAdminDevMode();
+
+    const configuredPriceListUrl = useMemo(
+        () => getSourceUrl(priceListSettings),
+        [priceListSettings]
+    );
 
     useEffect(() => {
         const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -98,10 +137,25 @@ const Catalog = () => {
         setCategoriesLoading(false);
     };
 
+    const loadPriceListSettings = useCallback(async () => {
+        setPriceListSettingsLoading(true);
+        try {
+            const response = await priceListImportService.getSettings();
+            const settings = normalizePriceListSettings(response.data);
+            setPriceListSettings(settings);
+            priceListForm.setFieldsValue({ sourceUrl: getSourceUrl(settings) });
+        } catch (error) {
+            message.error(getApiErrorMessage(error, 'Error al cargar la configuración de lista de precios'));
+        } finally {
+            setPriceListSettingsLoading(false);
+        }
+    }, [priceListForm]);
+
     useEffect(() => {
         loadLastUpdate();
         loadCategories();
-    }, []);
+        loadPriceListSettings();
+    }, [loadPriceListSettings]);
 
     const formatDate = (dateString) => {
         if (!dateString) return 'N/A';
@@ -254,20 +308,106 @@ const Catalog = () => {
         });
     };
 
-    const handleUpdateCatalog = async () => {
-        setUpdateLoading(true);
-        try {
-            const response = await productsAPI.updateParsed();
-            message.success(`Catálogo actualizado: ${response.data.updatedCount} productos`);
-            await Promise.all([loadLastUpdate(), loadCategories()]);
-        } catch (error) {
-            message.error(getApiErrorMessage(error, 'Error al actualizar el catálogo'));
+    const handleSavePriceListUrl = async ({ sourceUrl }) => {
+        const trimmedUrl = sourceUrl?.trim();
+        if (!trimmedUrl) {
+            message.warning('Ingresá una URL para guardar la configuración');
+            return;
         }
-        setUpdateLoading(false);
+
+        setPriceListSaving(true);
+        try {
+            const response = await priceListImportService.updateSettings(trimmedUrl);
+            const settings = normalizePriceListSettings(response.data);
+            const nextUrl = getSourceUrl(settings) || trimmedUrl;
+            setPriceListSettings({ ...priceListSettings, ...settings, sourceUrl: nextUrl });
+            priceListForm.setFieldsValue({ sourceUrl: nextUrl });
+            message.success('URL de lista de precios guardada correctamente');
+        } catch (error) {
+            message.error(getApiErrorMessage(error, 'Error al guardar la URL de lista de precios'));
+        } finally {
+            setPriceListSaving(false);
+        }
+    };
+
+    const setImportStartedFeedback = (data, fallbackMessage) => {
+        setPriceImportFeedback({
+            message: data?.message || fallbackMessage,
+            jobId: getImportJobId(data),
+            fileId: getImportFileId(data),
+        });
+    };
+
+    const handleRunPriceListConfiguredUrl = async () => {
+        if (!configuredPriceListUrl) {
+            message.warning('Guardá una URL de lista de precios antes de ejecutar la importación');
+            return;
+        }
+
+        setPriceListRunningUrl(true);
+        try {
+            const response = await priceListImportService.runConfiguredUrl();
+            setImportStartedFeedback(response.data, 'Importación iniciada correctamente.');
+            message.success('Importación iniciada correctamente');
+            await loadPriceListSettings();
+        } catch (error) {
+            message.error(getApiErrorMessage(
+                error,
+                'No se pudo iniciar la importación. Revisá la URL configurada o intentá nuevamente.'
+            ));
+        } finally {
+            setPriceListRunningUrl(false);
+        }
+    };
+
+    const handlePriceListFileSelect = (file) => {
+        if (!isAllowedPriceFile(file)) {
+            message.error('Solo se aceptan archivos .csv o .xlsx');
+            setSelectedPriceListFile(null);
+            return Upload.LIST_IGNORE;
+        }
+
+        setSelectedPriceListFile(file);
+        return false;
+    };
+
+    const handleRemovePriceListFile = () => {
+        setSelectedPriceListFile(null);
+    };
+
+    const handleUploadPriceListFile = async () => {
+        if (!selectedPriceListFile) {
+            message.warning('Seleccioná un archivo CSV o XLSX para importar');
+            return;
+        }
+
+        if (!isAllowedPriceFile(selectedPriceListFile)) {
+            message.error('Solo se aceptan archivos .csv o .xlsx');
+            setSelectedPriceListFile(null);
+            return;
+        }
+
+        setPriceListUploading(true);
+        try {
+            const response = await priceListImportService.uploadFile(selectedPriceListFile);
+            setImportStartedFeedback(response.data, 'Archivo enviado correctamente.');
+            setSelectedPriceListFile(null);
+            message.success('Archivo enviado correctamente');
+            await loadPriceListSettings();
+        } catch (error) {
+            message.error(getApiErrorMessage(error, 'No se pudo enviar el archivo. Intentá nuevamente.'));
+        } finally {
+            setPriceListUploading(false);
+        }
     };
 
     const selectedCategoriesData = categories.filter(c => selectedCategories.includes(c.category_id));
     const totalSelectedProducts = selectedCategoriesData.reduce((sum, c) => sum + c.product_count, 0);
+    const priceListFileList = selectedPriceListFile ? [{
+        uid: selectedPriceListFile.uid || selectedPriceListFile.name,
+        name: selectedPriceListFile.name,
+        status: 'done',
+    }] : [];
 
     return (
         <div>
@@ -282,6 +422,7 @@ const Catalog = () => {
                 <ul style={{ marginBottom: 0, paddingLeft: 20 }}>
                     <li><Text strong>Sincronización completa</Text> actualiza todo el catálogo y puede demorar varios minutos.</li>
                     <li><Text strong>Sincronización por categorías</Text> permite procesar solo algunos rubros.</li>
+                    <li><Text strong>Actualización de precios por lista</Text> actualiza precios de productos existentes desde una URL o un archivo CSV/XLSX.</li>
                     <li>Después de iniciar una sincronización, revisá el avance en la sección <Text strong>Procesos</Text>.</li>
                 </ul>
             </HelpPanel>
@@ -411,50 +552,138 @@ const Catalog = () => {
                 </Space>
             </Card>
 
-            {devMode && (isMobile ? (
-                <Collapse defaultActiveKey={[]} style={{ marginBottom: 16 }}>
-                    <Panel header={<Space><FileExcelOutlined /><Text strong>Herramienta interna: actualización desde Excel</Text></Space>} key="excel">
-                        <Space direction="vertical" style={{ width: '100%' }} size={12}>
-                            <Alert
-                                message="Herramienta interna"
-                                description="Procesa el archivo XLS remoto. No es un flujo operativo para cliente."
-                                type="warning"
-                                showIcon
-                                icon={<WarningOutlined />}
-                                style={{ fontSize: '12px' }}
+            <Card
+                title={<Space><FileExcelOutlined />Actualización de precios por lista</Space>}
+                style={{ marginBottom: 24 }}
+                loading={priceListSettingsLoading}
+                styles={{ body: { padding: isMobile ? '12px' : '24px' } }}
+                extra={!isMobile && (
+                    <Button
+                        type="link"
+                        onClick={loadPriceListSettings}
+                        loading={priceListSettingsLoading}
+                        icon={<ReloadOutlined />}
+                        size="small"
+                    >
+                        Actualizar
+                    </Button>
+                )}
+            >
+                <Space direction="vertical" style={{ width: '100%' }} size={isMobile ? 12 : 16}>
+                    <Alert
+                        message="Actualiza precios de productos existentes desde una URL configurada o desde un archivo CSV/XLSX."
+                        description="Solo actualiza precios de productos existentes. No crea productos, no elimina productos y no modifica categorías, marcas, imágenes, nombres ni descripciones."
+                        type="info"
+                        showIcon
+                        style={{ fontSize: isMobile ? '12px' : '14px' }}
+                    />
+
+                    <Form
+                        form={priceListForm}
+                        layout="vertical"
+                        onFinish={handleSavePriceListUrl}
+                    >
+                        <Form.Item
+                            label="URL configurada"
+                            name="sourceUrl"
+                            rules={[
+                                { required: true, message: 'La URL es requerida' },
+                                { whitespace: true, message: 'La URL es requerida' },
+                            ]}
+                        >
+                            <Input
+                                prefix={<LinkOutlined />}
+                                placeholder="https://..."
+                                disabled={priceListSaving || priceListRunningUrl}
                             />
-                            <div style={{ textAlign: 'center' }}>
-                                <Text type="secondary" style={{ fontSize: '11px', display: 'block' }}><CalendarOutlined /> Última actualización:</Text>
-                                <Text style={{ fontSize: '11px' }}>{formatDate(lastUpdate)}</Text>
-                            </div>
-                            <Button type="primary" icon={<ReloadOutlined />} loading={updateLoading} onClick={handleUpdateCatalog} block>
-                                Ejecutar actualización interna desde Excel
+                        </Form.Item>
+
+                        <Space wrap style={{ width: '100%' }}>
+                            <Button
+                                type="primary"
+                                htmlType="submit"
+                                icon={<SaveOutlined />}
+                                loading={priceListSaving}
+                            >
+                                Guardar URL
+                            </Button>
+                            <Button
+                                icon={<PlayCircleOutlined />}
+                                onClick={handleRunPriceListConfiguredUrl}
+                                disabled={!configuredPriceListUrl}
+                                loading={priceListRunningUrl}
+                            >
+                                Ejecutar desde URL configurada
                             </Button>
                         </Space>
-                    </Panel>
-                </Collapse>
-            ) : (
-                <Card title={<Space><FileExcelOutlined />Herramienta interna: actualización desde Excel</Space>} style={{ marginBottom: 24 }}>
-                    <Space direction="vertical" style={{ width: '100%' }}>
+                    </Form>
+
+                    {!configuredPriceListUrl && (
                         <Alert
-                            message="Herramienta interna"
-                            description="Descarga y procesa el archivo XLS remoto para actualizar precios y disponibilidad. No presentarla como flujo operativo para cliente."
                             type="warning"
                             showIcon
-                            icon={<WarningOutlined />}
-                            size="small"
+                            message="No hay URL configurada"
+                            description="Guardá una URL antes de ejecutar la importación desde fuente configurada."
+                            style={{ fontSize: isMobile ? '12px' : '14px' }}
                         />
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ marginBottom: 8 }}><CalendarOutlined style={{ marginRight: 8 }} /><Text strong>Última actualización:</Text></div>
-                            <Text type="secondary">{formatDate(lastUpdate)}</Text>
-                        </div>
-                        <Divider style={{ margin: '16px 0' }} />
-                        <Button type="primary" icon={<ReloadOutlined />} loading={updateLoading} onClick={handleUpdateCatalog} size="large" block>
-                            Ejecutar actualización interna desde Excel
-                        </Button>
+                    )}
+
+                    <Divider style={{ margin: isMobile ? '8px 0' : '12px 0' }} />
+
+                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                        <Text strong>Archivo manual</Text>
+                        <Space
+                            wrap
+                            align="start"
+                            size={isMobile ? 8 : 12}
+                            style={{ width: '100%' }}
+                        >
+                            <Upload
+                                accept=".csv,.xlsx"
+                                beforeUpload={handlePriceListFileSelect}
+                                fileList={priceListFileList}
+                                maxCount={1}
+                                onRemove={handleRemovePriceListFile}
+                            >
+                                <Button icon={<UploadOutlined />} disabled={priceListUploading}>
+                                    Seleccionar CSV/XLSX
+                                </Button>
+                            </Upload>
+                            <Button
+                                type="primary"
+                                icon={<FileExcelOutlined />}
+                                onClick={handleUploadPriceListFile}
+                                loading={priceListUploading}
+                                disabled={!selectedPriceListFile}
+                                style={{ width: isMobile ? '100%' : undefined }}
+                            >
+                                Ejecutar desde archivo
+                            </Button>
+                        </Space>
+                        <Text type="secondary" style={{ display: 'block', fontSize: isMobile ? '12px' : '14px' }}>
+                            Se aceptan archivos .csv y .xlsx. No se acepta .xls.
+                        </Text>
                     </Space>
-                </Card>
-            ))}
+
+                    {priceImportFeedback && (
+                        <Alert
+                            type="success"
+                            showIcon
+                            message={priceImportFeedback.message || 'Importación iniciada correctamente.'}
+                            description={(
+                                <Space direction="vertical" size={2}>
+                                    {priceImportFeedback.jobId && (
+                                        <Text>Proceso: <Text code>{priceImportFeedback.jobId}</Text></Text>
+                                    )}
+                                    {priceImportFeedback.fileId && (
+                                        <Text type="secondary">Archivo: <Text code>{priceImportFeedback.fileId}</Text></Text>
+                                    )}
+                                </Space>
+                            )}
+                        />
+                    )}
+                </Space>
+            </Card>
 
             {devMode && (
                 <>
